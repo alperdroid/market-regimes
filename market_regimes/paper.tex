@@ -352,6 +352,24 @@ every 252 days. This guarantees that all regime labels and return forecasts used
 backtest are strictly out-of-sample---the single most important safeguard against
 look-ahead bias.
 
+\paragraph{(e) Number of states.}
+We fix the number of regimes at three on both theoretical and empirical grounds. Three
+states map cleanly onto the Calm/Transitional/Crisis taxonomy, and the information
+criteria in Figure~\ref{fig:modelsel} corroborate the choice: the Bayesian and Akaike
+information criteria for both the HMM and the GMM flatten around $k=3$, while the GMM
+silhouette score peaks there, indicating little gain from additional states relative to
+their parameter cost.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.49\textwidth]{hmm_bic_aic}\hfill
+\includegraphics[width=0.49\textwidth]{gmm_bic_aic_silhouette}
+\caption[Model selection criteria]{Model selection. Left: HMM BIC/AIC versus number of
+states. Right: GMM BIC/AIC and silhouette scores.}
+\label{fig:modelsel}
+\floatnote{Source: own illustration based on own calculations.}
+\end{figure}
+
 \subsection{Regime-conditional CAPM}
 To characterise the economic content of the regimes, we estimate, for each sector $i$ and
 each VIX-defined regime $s$, the conditional Capital Asset Pricing Model (CAPM) by
@@ -497,6 +515,41 @@ regime label. Source: own illustration.}
 on the identified regime.}
 \label{fig:retdist}
 \floatnote{Source: own illustration based on data from Yahoo!\ Finance.}
+\end{figure}
+
+Two sets of diagnostics confirm the adequacy of the fitted models.
+Figure~\ref{fig:hmmdiag} examines the HMM: the implied stationary (ergodic) distribution
+matches the realised regime frequencies closely, and the autocorrelations of the
+standardised residuals are small, indicating that the three-state Gaussian specification
+captures the bulk of the serial structure in the feature process.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.49\textwidth]{hmm_persistence_ergodic}\hfill
+\includegraphics[width=0.49\textwidth]{hmm_residual_diagnostics}
+\caption[HMM diagnostics]{HMM diagnostics. Left: regime persistence and ergodic
+(stationary) distribution. Right: autocorrelation of standardised residuals.}
+\label{fig:hmmdiag}
+\floatnote{Source: own illustration based on own calculations.}
+\end{figure}
+
+Figure~\ref{fig:rfdiag} documents the diagnostics of the machine-learning stage. The left
+panel reports the out-of-sample confusion matrix of the pipeline's regime assignments
+against the volatility-based reference labelling; agreement is strong in the Calm and
+Crisis states and, as expected, weaker in the Transitional middle ground. The right panel
+ranks the Random-Forest feature importances, which confirm the economic prior behind the
+design: the VIX level and its change dominate, while lagged sector returns carry the
+residual cross-sectional signal exploited by the return forecasts.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.49\textwidth]{rf_confusion_matrix}\hfill
+\includegraphics[width=0.49\textwidth]{11_feature_importances}
+\caption[Random Forest diagnostics]{Random Forest diagnostics. Left: out-of-sample
+confusion matrix of regime assignments. Right: feature importances of the
+regime-specialist forecasters.}
+\label{fig:rfdiag}
+\floatnote{Source: own illustration based on own calculations.}
 \end{figure}
 
 \subsection{Regime-conditional betas}
@@ -741,47 +794,6 @@ far less than the choice of portfolio objective: across all three classifiers, t
 defensible value comes from minimum-variance risk targeting, not from timing returns. In
 this dataset, the intelligence in ``intelligent'' regime allocation is best spent on
 managing risk.
-
-% =====================================================================
-\appendix
-\section{Model-Selection and Validation Diagnostics}
-% =====================================================================
-Figure~\ref{fig:modelsel} reports information criteria for the HMM and GMM across
-candidate state counts; Figure~\ref{fig:hmmdiag} reports HMM persistence/ergodic
-diagnostics and the standardised-residual checks; Figure~\ref{fig:rfdiag} reports the
-out-of-sample classification diagnostics and feature importances of the Random Forest
-stage. These exhibits support the choice of three states and document the in-sample fit of
-the learned models.
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.49\textwidth]{hmm_bic_aic}\hfill
-\includegraphics[width=0.49\textwidth]{gmm_bic_aic_silhouette}
-\caption[Model selection criteria]{Model selection. Left: HMM BIC/AIC versus number of
-states. Right: GMM BIC/AIC and silhouette scores.}
-\label{fig:modelsel}
-\floatnote{Source: own illustration based on own calculations.}
-\end{figure}
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.49\textwidth]{hmm_persistence_ergodic}\hfill
-\includegraphics[width=0.49\textwidth]{hmm_residual_diagnostics}
-\caption[HMM diagnostics]{HMM diagnostics. Left: regime persistence and ergodic
-(stationary) distribution. Right: autocorrelation of standardised residuals.}
-\label{fig:hmmdiag}
-\floatnote{Source: own illustration based on own calculations.}
-\end{figure}
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.49\textwidth]{rf_confusion_matrix}\hfill
-\includegraphics[width=0.49\textwidth]{11_feature_importances}
-\caption[Random Forest diagnostics]{Random Forest diagnostics. Left: out-of-sample
-confusion matrix. Right: feature importances of the regime-specialist forecasters.}
-\label{fig:rfdiag}
-\floatnote{Source: own illustration based on own calculations.}
-\end{figure}
 
 % =====================================================================
 \clearpage
