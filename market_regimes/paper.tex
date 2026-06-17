@@ -18,12 +18,24 @@
 \usepackage{caption}
 \usepackage{microtype}
 \usepackage{float}
+\usepackage{fancyhdr}
 \usepackage[authoryear,round]{natbib}
 \usepackage[hidelinks]{hyperref}
 
 \graphicspath{{results/}{./results/}}
 \captionsetup{font=small,labelfont=bf}
 \onehalfspacing
+
+% Page numbers centered at the bottom of every page (cover page stays unnumbered)
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0pt}
+\fancypagestyle{plain}{%
+  \fancyhf{}%
+  \fancyfoot[C]{\thepage}%
+  \renewcommand{\headrulewidth}{0pt}%
+}
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{0.6em}
 
