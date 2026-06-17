@@ -1,15 +1,17 @@
 % =====================================================================
 %  A Comparative Taxonomy of Market Regimes
-%  Seminar paper — compile with:  pdflatex paper.tex  (run twice)
+%  Seminar paper — Chair of Financial Management and Capital Markets
+%  Compile with:  pdflatex paper.tex  (run TWICE for TOC / refs / citations)
 %  Figures are read from the results/ directory.
 % =====================================================================
-\documentclass[11pt,a4paper]{article}
+\documentclass[12pt,a4paper]{article}
 
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage{lmodern}
-\usepackage[margin=1in]{geometry}
 \usepackage{amsmath,amssymb}
+\usepackage{newtxtext,newtxmath}      % Times New Roman–like text and math
+\usepackage[left=2.5cm,right=2.5cm,top=2.5cm,bottom=2cm]{geometry}
+\usepackage{setspace}
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{array}
@@ -21,19 +23,107 @@
 
 \graphicspath{{results/}{./results/}}
 \captionsetup{font=small,labelfont=bf}
-\setlength{\parskip}{0.3em}
+\onehalfspacing
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.6em}
 
+% Small helper for the "Notes / Source" block under floats
+\newcommand{\floatnote}[1]{\par\vspace{2pt}{\footnotesize\textit{#1}}}
 \newcommand{\dvix}{\Delta\mathrm{VIX}}
 \newcommand{\rf}{r^{f}}
 
-\title{\textbf{A Comparative Taxonomy of Market Regimes:\\
-Machine Learning versus Hidden Markov Models in\\
-US Tactical Sector Allocation}}
-\author{Seminar Paper}
-\date{\today}
-
 \begin{document}
-\maketitle
+
+% =====================================================================
+%  COVER PAGE
+% =====================================================================
+\begin{titlepage}
+\centering
+{\large [University Name]\par}
+{\large Chair of Financial Management and Capital Markets\par}
+\vspace{1.2cm}
+{\large Seminar Paper\par}
+\vspace{2.2cm}
+{\Large\bfseries A Comparative Taxonomy of Market Regimes:\\[0.3em]
+Machine Learning versus Hidden Markov Models in\\[0.3em]
+US Tactical Sector Allocation\par}
+\vspace{2.2cm}
+\begin{tabular}{rl}
+Submitted by:        & [Your Full Name]\\
+Matriculation No.:   & [XXXXXXX]\\
+Study Programme:     & [B.Sc./M.Sc. \ldots]\\
+Supervisor:          & [Supervisor Name]\\
+Semester:            & [e.g.\ Summer Semester 2026]\\
+\end{tabular}
+\vfill
+{\normalsize [Place], \today\par}
+\end{titlepage}
+
+% =====================================================================
+%  FRONT MATTER (roman page numbers)
+% =====================================================================
+\pagenumbering{roman}
+
+\tableofcontents
+\clearpage
+
+\addcontentsline{toc}{section}{List of Figures}
+\listoffigures
+\clearpage
+
+\addcontentsline{toc}{section}{List of Tables}
+\listoftables
+\clearpage
+
+% ---- List of Abbreviations ------------------------------------------
+\addcontentsline{toc}{section}{List of Abbreviations}
+\section*{List of Abbreviations}
+\begin{tabular}{ll}
+AIC   & Akaike Information Criterion \\
+BIC   & Bayesian Information Criterion \\
+CAPM  & Capital Asset Pricing Model \\
+DSR   & Deflated Sharpe Ratio \\
+EM    & Expectation--Maximisation \\
+ETF   & Exchange-Traded Fund \\
+FRED  & Federal Reserve Economic Database \\
+GMM   & Gaussian Mixture Model \\
+HMM   & Hidden Markov Model \\
+MVP   & Minimum-Variance Portfolio \\
+OLS   & Ordinary Least Squares \\
+PSR   & Probabilistic Sharpe Ratio \\
+RF    & Random Forest \\
+SLSQP & Sequential Least-Squares Quadratic Programming \\
+SPDR  & Standard \& Poor's Depositary Receipts \\
+TPF   & Tangency Portfolio (maximum-Sharpe) \\
+VIX   & CBOE Volatility Index \\
+\end{tabular}
+\clearpage
+
+% ---- List of Symbols ------------------------------------------------
+\addcontentsline{toc}{section}{List of Symbols}
+\section*{List of Symbols}
+\begin{tabular}{ll}
+$P_{i,t}$            & Adjusted closing price of asset $i$ at time $t$ \\
+$r_{i,t}$            & Log return of asset $i$ \\
+$e_{i,t}$            & Excess (over risk-free) return of asset $i$ \\
+$\rf_t$              & Daily risk-free rate \\
+$\dvix_t$           & Daily change in the VIX index \\
+$s_t$               & Latent regime (state) at time $t$ \\
+$\mu_k,\ \Sigma_k$  & State-$k$ conditional mean vector and covariance matrix \\
+$A_{ij}$            & Markov transition probability from state $i$ to state $j$ \\
+$\alpha,\ \beta$    & CAPM intercept (Jensen's alpha) and market beta \\
+$\varepsilon_{i,t}$ & Regression residual \\
+$w$                 & Vector of portfolio weights \\
+$\tau_t$            & One-way portfolio turnover at rebalance $t$ \\
+$V,\ p$             & Reality-Check statistic and bootstrap $p$-value \\
+$T,\ N$             & Number of time observations and of assets \\
+\end{tabular}
+\clearpage
+
+% =====================================================================
+%  MAIN TEXT (arabic page numbers)
+% =====================================================================
+\pagenumbering{arabic}
 
 \begin{abstract}
 \noindent
@@ -71,6 +161,17 @@ question that much of the academic literature elides: once a regime model is est
 only on information available at the time of trading, and once realistic transaction
 costs are charged, does regime conditioning actually beat a passive benchmark?
 
+\paragraph{Objective and research question.}
+The objective of this paper is to quantify, on a strictly out-of-sample and after-cost
+basis, the economic value added by market-regime conditioning in US sector allocation,
+and to decompose that value into a \emph{risk} component and a \emph{return} component.
+We address three research questions. (RQ1) Does a data-driven latent-state model (HMM or
+machine learning) identify regimes more usefully than a transparent VIX rule? (RQ2) Is
+any incremental value attributable to regime \emph{persistence}, isolated by contrasting
+the Markovian HMM with a memoryless mixture? (RQ3) Does the best-performing strategy
+survive a formal data-snooping correction, or is its outperformance a selection artefact?
+
+\paragraph{Contributions.}
 We make three contributions. First, we place three structurally distinct regime
 classifiers on a common, strictly out-of-sample footing: a transparent VIX threshold
 rule, a Gaussian HMM that explicitly models regime \emph{persistence}, and a two-stage
@@ -98,8 +199,18 @@ more than six times its capital per year, and its return advantage over the S\&P
 statistically indistinguishable from chance once data snooping is accounted for. The
 value of ``intelligence'' in regime modelling, in this dataset, is defensive.
 
+\paragraph{Outline.}
+The remainder proceeds as follows. Section~\ref{sec:lit} reviews the relevant literature
+on regime-switching models, volatility-based classification, machine learning for
+returns, and performance evaluation. Section~\ref{sec:data} describes the data.
+Section~\ref{sec:method} develops the methodology---feature construction, the three
+regime classifiers, the conditional CAPM, portfolio construction, and the evaluation
+framework. Section~\ref{sec:results} presents the empirical results. Section~\ref{sec:disc}
+discusses their interpretation, Section~\ref{sec:limit} states limitations, and
+Section~\ref{sec:concl} concludes.
+
 % =====================================================================
-\section{Related Literature}
+\section{Related Literature}\label{sec:lit}
 % =====================================================================
 \paragraph{Regime-switching models.}
 The Markov-switching framework of \citet{hamilton1989} formalised the idea that financial
@@ -146,7 +257,7 @@ chance across the trials searched. \citet{harvey2016} make the general case for 
 significance thresholds in light of the multiplicity of tested strategies.
 
 % =====================================================================
-\section{Data}
+\section{Data}\label{sec:data}
 % =====================================================================
 The sample comprises daily data from January 2004 to December 2025 (5{,}533 trading
 days), sourced from Yahoo!\ Finance and the Federal Reserve Economic Database (FRED) and
@@ -164,16 +275,17 @@ The CBOE VIX index proxies market stress. The risk-free rate is the 13-week
 Treasury-bill annualised yield (\texttt{\textasciicircum IRX}), converted to a daily
 decimal rate. Two macro--financial conditioning variables are drawn from FRED: the TED
 spread (\texttt{TEDRATE}), a funding-stress indicator, and the 10-year--2-year Treasury
-term spread (\texttt{T10Y2Y}), a leading indicator of the business cycle. Log returns are
+term spread (\texttt{T10Y2Y}), a leading indicator of the business cycle. Log returns and
+excess returns are defined as
 \begin{equation}
   r_{i,t}=\ln\!\left(\frac{P_{i,t}}{P_{i,t-1}}\right),
   \qquad
   e_{i,t}=r_{i,t}-\rf_t,
 \end{equation}
-where $e_{i,t}$ denotes the excess return over the risk-free rate.
+where $e_{i,t}$ is the excess return over the risk-free rate.
 
 % =====================================================================
-\section{Methodology}
+\section{Methodology}\label{sec:method}
 % =====================================================================
 
 \subsection{Feature construction}
@@ -230,7 +342,8 @@ look-ahead bias.
 
 \subsection{Regime-conditional CAPM}
 To characterise the economic content of the regimes, we estimate, for each sector $i$ and
-each VIX-defined regime $s$, the conditional market model by OLS,
+each VIX-defined regime $s$, the conditional Capital Asset Pricing Model (CAPM) by
+ordinary least squares (OLS),
 \begin{equation}
   e_{i,t}=\alpha_i^{(s)}+\beta_i^{(s)}\,e_{\mathrm{SPY},t}+\varepsilon_{i,t},
 \end{equation}
@@ -238,7 +351,7 @@ reporting annualised alphas, betas, $t$-statistics and $R^2$.
 
 \subsection{Portfolio construction}
 Each strategy is rebalanced monthly (every 21 trading days) using two long-only
-optimisers, solved by sequential quadratic programming (SLSQP):
+optimisers, solved by sequential least-squares quadratic programming (SLSQP):
 \begin{align}
   \text{MVP:}\quad & \min_{w}\; w^{\top}\Sigma w
     && \text{s.t.}\;\; \mathbf{1}^{\top}w=1,\;\; w\ge 0, \\[2pt]
@@ -284,7 +397,7 @@ statistic is
 using a mean block length of 10 days and $B=2{,}000$ resamples.
 
 % =====================================================================
-\section{Results}
+\section{Results}\label{sec:results}
 % =====================================================================
 
 \subsection{Regime characterisation}
@@ -292,11 +405,16 @@ The VIX rule assigns 68.6\% of days to Calm (mean VIX 14.8), 23.3\% to Transitio
 (23.9), and 8.1\% to Crisis (40.7). The regimes are economically coherent
 (Table~\ref{tab:regstats}): the equal-weight sector return averages $+27\%$ annualised in
 Calm, $-9\%$ in Transitional and $-90\%$ in Crisis, while volatility rises monotonically.
+Figure~\ref{fig:timeline} maps the three classifiers onto the VIX path; the crisis
+clusters coincide with the 2008--09 global financial crisis and the early-2020 pandemic
+shock. Figure~\ref{fig:heatmap} shows that the classifiers agree most in extreme states
+and diverge in the Transitional middle ground, while Figure~\ref{fig:retdist} confirms
+that the regime labels separate the cross-section of daily returns into progressively
+wider and more left-skewed distributions.
 
 \begin{table}[H]
 \centering
-\caption{VIX-defined regime statistics (full sample). Equal-weight returns and
-volatilities are annualised.}
+\caption{VIX-defined regime statistics (full sample).}
 \label{tab:regstats}
 \small
 \begin{tabular}{lrrrrr}
@@ -308,6 +426,10 @@ Transitional & 1{,}292 & 23.3 & 23.9 & $-8.8\%$  & 19.3\% \\
 Crisis       &   447   &  8.1 & 40.7 & $-90.0\%$ & 45.6\% \\
 \bottomrule
 \end{tabular}
+\floatnote{Notes. Days are classified by the VIX rule (Calm $<20$, Transitional
+$20$--$30$, Crisis $\ge 30$). ``EqWt Ret.'' and ``EqWt Vol.'' are the annualised mean and
+standard deviation of the equal-weight sector return within each regime. Source: own
+calculations based on data from Yahoo!\ Finance and FRED.}
 \end{table}
 
 The HMM recovers a more balanced and highly persistent partition (Calm 2{,}302 days,
@@ -320,7 +442,7 @@ Transitional 1{,}612, Crisis 389) lack this temporal structure.
 
 \begin{table}[H]
 \centering
-\caption{Sorted HMM transition matrix $A_{ij}=\Pr(s_{t+1}=j\mid s_t=i)$.}
+\caption{Sorted HMM transition matrix.}
 \label{tab:trans}
 \small
 \begin{tabular}{lccc}
@@ -332,14 +454,37 @@ Transitional & 0.162 & 0.807 & 0.030 \\
 Crisis       & 0.000 & 0.166 & 0.834 \\
 \bottomrule
 \end{tabular}
+\floatnote{Notes. Entries are estimated one-day transition probabilities
+$A_{ij}=\Pr(s_{t+1}=j\mid s_t=i)$ from the three-state Gaussian HMM, with states sorted by
+their conditional mean $\dvix$. Rows sum to one. Source: own calculations.}
 \end{table}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{01_regime_timeline}
-\caption{Regime timeline. VIX level with the three classifiers' regime assignments over
-2004--2025; the crisis clusters align with 2008--09 and early 2020.}
+\caption[Regime timeline]{Regime timeline: VIX level with the three classifiers' regime
+assignments, 2004--2025.}
 \label{fig:timeline}
+\floatnote{Source: own illustration based on data from Yahoo!\ Finance and FRED.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.86\textwidth]{02_regime_comparison_heatmap}
+\caption[Classifier agreement]{Cross-classifier agreement on daily regime labels (VIX,
+HMM, ML).}
+\label{fig:heatmap}
+\floatnote{Notes. Cells report the share of days on which two classifiers assign the same
+regime label. Source: own illustration.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth]{04_return_distributions}
+\caption[Return distributions by regime]{Distribution of daily sector returns conditional
+on the identified regime.}
+\label{fig:retdist}
+\floatnote{Source: own illustration based on data from Yahoo!\ Finance.}
 \end{figure}
 
 \subsection{Regime-conditional betas}
@@ -350,11 +495,12 @@ $1.27$---so that diversification deteriorates precisely when protection is most 
 \citep{ang2002}. Defensive sectors remain low-beta throughout (Utilities $\approx0.51$,
 Consumer Staples $\approx0.55$, Health Care $\approx0.69$), and regression $R^2$ rises
 markedly in crises (e.g.\ Technology $0.73\to0.91$), reflecting the collapse of
-idiosyncratic dispersion under stress.
+idiosyncratic dispersion under stress. This is the economic mechanism a successful
+defensive rotation must exploit.
 
 \begin{table}[H]
 \centering
-\caption{Regime-conditional CAPM betas for representative cyclical and defensive sectors.}
+\caption{Regime-conditional CAPM betas (representative sectors).}
 \label{tab:betas}
 \small
 \begin{tabular}{lccc}
@@ -370,14 +516,19 @@ Consumer Staples (XLP)& 0.55 & 0.53 & 0.57 \\
 Utilities (XLU)       & 0.51 & 0.53 & 0.75 \\
 \bottomrule
 \end{tabular}
+\floatnote{Notes. Each $\beta^{(s)}$ is the slope of an OLS regression of the sector's
+daily excess return on the S\&P~500 excess return, estimated on the subset of days in
+VIX regime $s$. The upper block shows cyclical sectors, the lower block defensive
+sectors. Source: own calculations.}
 \end{table}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.92\textwidth]{05_capm_betas}
-\caption{Regime-conditional CAPM betas by sector. Cyclical betas rise into crisis;
-defensive betas stay low.}
+\caption[Regime-conditional betas]{Regime-conditional CAPM betas by sector: cyclical
+betas rise into crisis, defensive betas stay low.}
 \label{fig:betas}
+\floatnote{Source: own illustration based on own calculations.}
 \end{figure}
 
 \subsection{Portfolio performance}
@@ -386,9 +537,7 @@ Table~\ref{tab:perf} reports out-of-sample performance over the common backtest 
 
 \begin{table}[H]
 \centering
-\caption{Out-of-sample performance, net of 10~bps one-way transaction costs. Turnover is
-measured annual one-way turnover; break-even is the total one-way cost (bps) at which the
-Sharpe ratio falls to the S\&P~500's.}
+\caption{Out-of-sample portfolio performance, net of transaction costs.}
 \label{tab:perf}
 \footnotesize
 \setlength{\tabcolsep}{4.5pt}
@@ -409,6 +558,12 @@ ML-MVP      & 6.21 & 14.17 & 0.50 & 0.46 & $-38.9$ & 1.89 & 0.31  & 77  & \textb
 \textbf{ML-TPF} & \textbf{9.48} & 17.33 & \textbf{0.61} & 0.57 & $-38.0$ & \textbf{4.25} & 0.059 & 621 & 56.9 \\
 \bottomrule
 \end{tabular}}
+\floatnote{Notes. Daily out-of-sample excess returns, net of 10~bps one-way transaction
+costs, over 2006--2025 ($T=5{,}023$). Sharpe and Sortino are annualised; $\alpha$ and
+$p(\alpha)$ are the annualised Jensen alpha and its two-sided $p$-value from a CAPM
+regression on the S\&P~500. ``Turn.'' is measured annual one-way turnover; ``Break-even''
+is the total one-way cost (bps), computed from gross returns, at which the Sharpe ratio
+equals the S\&P~500's. Source: own calculations.}
 \end{table}
 
 Four patterns emerge. \emph{First}, the value of regime conditioning is overwhelmingly
@@ -425,21 +580,36 @@ posts the best raw performance in the study. \emph{Fourth}, the minimum-variance
 strategies, which never touch the fragile expected-return estimate, are uniformly stable
 across all three classifiers, with ML-MVP marginally best. The contrast between the robust
 MVP column and the volatile TPF column is a direct illustration of the estimation-risk
-critique of mean--variance optimisation.
+critique of mean--variance optimisation. Figure~\ref{fig:weights} traces how the
+regime-conditional weights rotate toward defensive sectors and cash as the system enters
+Crisis.
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{07_cumulative_wealth}
-\caption{Cumulative wealth of all ten strategies over the backtest window.}
+\caption[Cumulative wealth]{Cumulative wealth of all ten strategies over the backtest
+window.}
 \label{fig:wealth}
+\floatnote{Source: own illustration based on own calculations.}
 \end{figure}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{09_drawdown_profiles}
-\caption{Drawdown profiles. The minimum-variance strategies roughly halve the peak
-drawdown of the passive benchmark.}
+\caption[Drawdown profiles]{Drawdown profiles: the minimum-variance strategies roughly
+halve the peak drawdown of the passive benchmark.}
 \label{fig:dd}
+\floatnote{Source: own illustration based on own calculations.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{06_portfolio_weights}
+\caption[Portfolio weight evolution]{Evolution of regime-conditional portfolio weights
+across the backtest.}
+\label{fig:weights}
+\floatnote{Notes. Stacked sector weights for the regime-gated strategies; the cash sleeve
+appears during Crisis regimes. Source: own illustration.}
 \end{figure}
 
 \subsection{Transaction costs and break-even}
@@ -456,9 +626,11 @@ strategies are precisely the low-turnover minimum-variance ones.
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.92\textwidth]{10_breakeven_costs}
-\caption{Break-even transaction-cost analysis: Sharpe ratio (from gross returns) as a
-function of total one-way cost, relative to the S\&P~500 Sharpe (dashed).}
+\caption[Break-even transaction cost]{Break-even transaction-cost analysis: Sharpe ratio
+(from gross returns) versus total one-way cost.}
 \label{fig:breakeven}
+\floatnote{Notes. The dashed line marks the S\&P~500 Sharpe ratio; a strategy's break-even
+cost is the abscissa at which its curve crosses it. Source: own illustration.}
 \end{figure}
 
 \subsection{Statistical significance}
@@ -469,9 +641,7 @@ correction (Table~\ref{tab:sig}).
 
 \begin{table}[H]
 \centering
-\caption{Data-snooping corrections for the best strategy (ML-TPF). The Deflated Sharpe
-Ratio evaluates the risk-adjusted return; White's Reality Check evaluates raw return
-relative to the S\&P~500.}
+\caption{Data-snooping corrections for the best strategy (ML-TPF).}
 \label{tab:sig}
 \small
 \begin{tabular}{lll}
@@ -482,6 +652,12 @@ Deflated Sharpe Ratio & $0.977$ (Sharpe $0.61$ vs.\ null $0.15$) & Significant a
 White's Reality Check & $p=0.560$ (2{,}000 bootstraps) & Cannot reject $H_0$ \\
 \bottomrule
 \end{tabular}
+\floatnote{Notes. The Deflated Sharpe Ratio \citep{bailey2014} reports the probability
+that the true Sharpe exceeds the snooping-adjusted null benchmark, correcting for the
+number of trials and the skewness and kurtosis of returns. White's Reality Check
+\citep{white2000} reports the stationary-bootstrap $p$-value (mean block 10 days,
+$B=2{,}000$) of the null that the best strategy does not out-return the S\&P~500.
+Source: own calculations.}
 \end{table}
 
 The two corrections disagree, and the disagreement is itself the result. The Deflated
@@ -498,7 +674,7 @@ with materially less risk, not a higher return. Because the strategy grid is str
 trials, we regard the bootstrap Reality Check as the more conservative and reliable test.
 
 % =====================================================================
-\section{Discussion}
+\section{Discussion}\label{sec:disc}
 % =====================================================================
 The results cohere around a single economic message. The conditional-beta evidence shows
 that the exploitable structure in the volatility cycle is the rising market sensitivity of
@@ -522,7 +698,7 @@ implication is to prefer a simple, low-turnover, regime-aware minimum-variance o
 over an elaborate return-timing apparatus.
 
 % =====================================================================
-\section{Limitations and Future Work}
+\section{Limitations and Future Work}\label{sec:limit}
 % =====================================================================
 Several caveats temper the conclusions. (i) The backtest holds weights fixed between
 monthly rebalances and measures turnover on a target-to-target basis, abstracting from
@@ -539,7 +715,7 @@ with explicit duration distributions, and an out-of-sample combination of the th
 classifiers.
 
 % =====================================================================
-\section{Conclusion}
+\section{Conclusion}\label{sec:concl}
 % =====================================================================
 Conditioning a US sector-rotation strategy on inferred market regimes---whether by a
 simple VIX rule, a Gaussian Hidden Markov Model, or a machine-learning
@@ -558,51 +734,94 @@ managing risk.
 \appendix
 \section{Model-Selection and Validation Diagnostics}
 % =====================================================================
-Figure~\ref{fig:hmmbic} reports HMM and GMM information criteria across candidate state
-counts; Figure~\ref{fig:rfcm} reports the out-of-sample classification diagnostics and
-feature importances of the Random Forest stage.
+Figure~\ref{fig:modelsel} reports information criteria for the HMM and GMM across
+candidate state counts; Figure~\ref{fig:hmmdiag} reports HMM persistence/ergodic
+diagnostics and the standardised-residual checks; Figure~\ref{fig:rfdiag} reports the
+out-of-sample classification diagnostics and feature importances of the Random Forest
+stage. These exhibits support the choice of three states and document the in-sample fit of
+the learned models.
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.49\textwidth]{hmm_bic_aic}\hfill
 \includegraphics[width=0.49\textwidth]{gmm_bic_aic_silhouette}
-\caption{Model selection. Left: HMM BIC/AIC versus number of states. Right: GMM BIC/AIC
-and silhouette scores. Three states are a defensible choice on both criteria.}
-\label{fig:hmmbic}
+\caption[Model selection criteria]{Model selection. Left: HMM BIC/AIC versus number of
+states. Right: GMM BIC/AIC and silhouette scores.}
+\label{fig:modelsel}
+\floatnote{Source: own illustration based on own calculations.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.49\textwidth]{hmm_persistence_ergodic}\hfill
+\includegraphics[width=0.49\textwidth]{hmm_residual_diagnostics}
+\caption[HMM diagnostics]{HMM diagnostics. Left: regime persistence and ergodic
+(stationary) distribution. Right: autocorrelation of standardised residuals.}
+\label{fig:hmmdiag}
+\floatnote{Source: own illustration based on own calculations.}
 \end{figure}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.49\textwidth]{rf_confusion_matrix}\hfill
 \includegraphics[width=0.49\textwidth]{11_feature_importances}
-\caption{Random Forest diagnostics. Left: out-of-sample confusion matrix. Right: feature
-importances driving the regime-specialist return forecasts.}
-\label{fig:rfcm}
+\caption[Random Forest diagnostics]{Random Forest diagnostics. Left: out-of-sample
+confusion matrix. Right: feature importances of the regime-specialist forecasters.}
+\label{fig:rfdiag}
+\floatnote{Source: own illustration based on own calculations.}
 \end{figure}
 
 % =====================================================================
+\clearpage
+\addcontentsline{toc}{section}{References}
 \begin{thebibliography}{99}
 % =====================================================================
-\bibitem[Ang and Bekaert(2002)]{ang2002} Ang, A., and Bekaert, G. (2002). International Asset Allocation with Regime Shifts. \textit{Review of Financial Studies} 15(4), 1137--1187.
-\bibitem[Bailey and L\'opez de Prado(2014)]{bailey2014} Bailey, D.~H., and L\'opez de Prado, M. (2014). The Deflated Sharpe Ratio. \textit{Journal of Portfolio Management} 40(5), 94--107.
-\bibitem[Baum et al.(1970)]{baum1970} Baum, L.~E., Petrie, T., Soules, G., and Weiss, N. (1970). A Maximization Technique Occurring in the Statistical Analysis of Probabilistic Functions of Markov Chains. \textit{Annals of Mathematical Statistics} 41(1), 164--171.
-\bibitem[Bloom(2009)]{bloom2009} Bloom, N. (2009). The Impact of Uncertainty Shocks. \textit{Econometrica} 77(3), 623--685.
-\bibitem[Breiman(2001)]{breiman2001} Breiman, L. (2001). Random Forests. \textit{Machine Learning} 45(1), 5--32.
-\bibitem[Clarke et al.(2006)]{clarke2006} Clarke, R., de Silva, H., and Thorley, S. (2006). Minimum-Variance Portfolios in the US Equity Market. \textit{Journal of Portfolio Management} 33(1), 10--24.
-\bibitem[DeMiguel et al.(2009)]{demiguel2009} DeMiguel, V., Garlappi, L., and Uppal, R. (2009). Optimal Versus Naive Diversification. \textit{Review of Financial Studies} 22(5), 1915--1953.
-\bibitem[Dempster et al.(1977)]{dempster1977} Dempster, A.~P., Laird, N.~M., and Rubin, D.~B. (1977). Maximum Likelihood from Incomplete Data via the EM Algorithm. \textit{JRSS B} 39(1), 1--38.
-\bibitem[Gu et al.(2020)]{gu2020} Gu, S., Kelly, B., and Xiu, D. (2020). Empirical Asset Pricing via Machine Learning. \textit{Review of Financial Studies} 33(5), 2223--2273.
-\bibitem[Guidolin and Timmermann(2007)]{guidolin2007} Guidolin, M., and Timmermann, A. (2007). Asset Allocation under Multivariate Regime Switching. \textit{Journal of Economic Dynamics and Control} 31(11), 3503--3544.
-\bibitem[Hamilton(1989)]{hamilton1989} Hamilton, J.~D. (1989). A New Approach to the Economic Analysis of Nonstationary Time Series and the Business Cycle. \textit{Econometrica} 57(2), 357--384.
-\bibitem[Harvey et al.(2016)]{harvey2016} Harvey, C.~R., Liu, Y., and Zhu, H. (2016). \dots and the Cross-Section of Expected Returns. \textit{Review of Financial Studies} 29(1), 5--68.
-\bibitem[Ledoit and Wolf(2004)]{ledoit2004} Ledoit, O., and Wolf, M. (2004). A Well-Conditioned Estimator for Large-Dimensional Covariance Matrices. \textit{Journal of Multivariate Analysis} 88(2), 365--411.
-\bibitem[Markowitz(1952)]{markowitz1952} Markowitz, H. (1952). Portfolio Selection. \textit{Journal of Finance} 7(1), 77--91.
-\bibitem[McLachlan and Peel(2000)]{mclachlan2000} McLachlan, G., and Peel, D. (2000). \textit{Finite Mixture Models}. Wiley.
-\bibitem[Politis and Romano(1994)]{politis1994} Politis, D.~N., and Romano, J.~P. (1994). The Stationary Bootstrap. \textit{JASA} 89(428), 1303--1313.
-\bibitem[Sharpe(1966)]{sharpe1966} Sharpe, W.~F. (1966). Mutual Fund Performance. \textit{Journal of Business} 39(1), 119--138.
-\bibitem[Viterbi(1967)]{viterbi1967} Viterbi, A.~J. (1967). Error Bounds for Convolutional Codes and an Asymptotically Optimum Decoding Algorithm. \textit{IEEE Trans.\ Information Theory} 13(2), 260--269.
-\bibitem[Whaley(2009)]{whaley2009} Whaley, R.~E. (2009). Understanding the VIX. \textit{Journal of Portfolio Management} 35(3), 98--105.
-\bibitem[White(2000)]{white2000} White, H. (2000). A Reality Check for Data Snooping. \textit{Econometrica} 68(5), 1097--1126.
+\bibitem[Ang and Bekaert(2002)]{ang2002} Ang, A., and Bekaert, G. (2002). International Asset Allocation with Regime Shifts. \textit{Review of Financial Studies}, 15(4), 1137--1187.
+\bibitem[Bailey and L\'opez de Prado(2014)]{bailey2014} Bailey, D.~H., and L\'opez de Prado, M. (2014). The Deflated Sharpe Ratio: Correcting for Selection Bias, Backtest Overfitting, and Non-Normality. \textit{Journal of Portfolio Management}, 40(5), 94--107.
+\bibitem[Baum et al.(1970)]{baum1970} Baum, L.~E., Petrie, T., Soules, G., and Weiss, N. (1970). A Maximization Technique Occurring in the Statistical Analysis of Probabilistic Functions of Markov Chains. \textit{Annals of Mathematical Statistics}, 41(1), 164--171.
+\bibitem[Bloom(2009)]{bloom2009} Bloom, N. (2009). The Impact of Uncertainty Shocks. \textit{Econometrica}, 77(3), 623--685.
+\bibitem[Breiman(2001)]{breiman2001} Breiman, L. (2001). Random Forests. \textit{Machine Learning}, 45(1), 5--32.
+\bibitem[Clarke et al.(2006)]{clarke2006} Clarke, R., de Silva, H., and Thorley, S. (2006). Minimum-Variance Portfolios in the US Equity Market. \textit{Journal of Portfolio Management}, 33(1), 10--24.
+\bibitem[DeMiguel et al.(2009)]{demiguel2009} DeMiguel, V., Garlappi, L., and Uppal, R. (2009). Optimal Versus Naive Diversification: How Inefficient Is the 1/N Portfolio Strategy? \textit{Review of Financial Studies}, 22(5), 1915--1953.
+\bibitem[Dempster et al.(1977)]{dempster1977} Dempster, A.~P., Laird, N.~M., and Rubin, D.~B. (1977). Maximum Likelihood from Incomplete Data via the EM Algorithm. \textit{Journal of the Royal Statistical Society, Series B}, 39(1), 1--38.
+\bibitem[Gu et al.(2020)]{gu2020} Gu, S., Kelly, B., and Xiu, D. (2020). Empirical Asset Pricing via Machine Learning. \textit{Review of Financial Studies}, 33(5), 2223--2273.
+\bibitem[Guidolin and Timmermann(2007)]{guidolin2007} Guidolin, M., and Timmermann, A. (2007). Asset Allocation under Multivariate Regime Switching. \textit{Journal of Economic Dynamics and Control}, 31(11), 3503--3544.
+\bibitem[Hamilton(1989)]{hamilton1989} Hamilton, J.~D. (1989). A New Approach to the Economic Analysis of Nonstationary Time Series and the Business Cycle. \textit{Econometrica}, 57(2), 357--384.
+\bibitem[Harvey et al.(2016)]{harvey2016} Harvey, C.~R., Liu, Y., and Zhu, H. (2016). \ldots and the Cross-Section of Expected Returns. \textit{Review of Financial Studies}, 29(1), 5--68.
+\bibitem[Ledoit and Wolf(2004)]{ledoit2004} Ledoit, O., and Wolf, M. (2004). A Well-Conditioned Estimator for Large-Dimensional Covariance Matrices. \textit{Journal of Multivariate Analysis}, 88(2), 365--411.
+\bibitem[Markowitz(1952)]{markowitz1952} Markowitz, H. (1952). Portfolio Selection. \textit{Journal of Finance}, 7(1), 77--91.
+\bibitem[McLachlan and Peel(2000)]{mclachlan2000} McLachlan, G., and Peel, D. (2000). \textit{Finite Mixture Models}. New York: Wiley.
+\bibitem[Politis and Romano(1994)]{politis1994} Politis, D.~N., and Romano, J.~P. (1994). The Stationary Bootstrap. \textit{Journal of the American Statistical Association}, 89(428), 1303--1313.
+\bibitem[Sharpe(1966)]{sharpe1966} Sharpe, W.~F. (1966). Mutual Fund Performance. \textit{Journal of Business}, 39(1), 119--138.
+\bibitem[Viterbi(1967)]{viterbi1967} Viterbi, A.~J. (1967). Error Bounds for Convolutional Codes and an Asymptotically Optimum Decoding Algorithm. \textit{IEEE Transactions on Information Theory}, 13(2), 260--269.
+\bibitem[Whaley(2009)]{whaley2009} Whaley, R.~E. (2009). Understanding the VIX. \textit{Journal of Portfolio Management}, 35(3), 98--105.
+\bibitem[White(2000)]{white2000} White, H. (2000). A Reality Check for Data Snooping. \textit{Econometrica}, 68(5), 1097--1126.
 \end{thebibliography}
+
+% =====================================================================
+\clearpage
+\addcontentsline{toc}{section}{Statement of Academic Integrity}
+\section*{Statement of Academic Integrity}
+% =====================================================================
+Hereby, I declare that I have composed the presented paper independently on my own and
+without any other resources than the ones indicated. All thoughts taken directly or
+indirectly from external sources are properly denoted as such. This paper has neither been
+previously submitted to another authority nor has it been published yet.
+
+\vspace{0.8em}
+\textit{Declaration on the use of generative AI.} In the preparation of this paper, the
+author used the generative AI system Claude (Anthropic) for the following purposes:
+assistance in structuring and debugging the Python implementation; drafting and editing
+text passages that were subsequently reviewed and revised by the author; and assistance in
+producing tables and figures from the author's own data and computations. All AI-assisted
+outputs were critically reviewed, verified against the underlying data and source code, and
+edited by the author, who takes full responsibility for the content of this paper.
+\emph{[Adapt this paragraph to reflect your actual use; remove if not applicable.]}
+
+\vspace{2.0cm}
+\noindent\begin{tabular}{p{6cm}p{6cm}}
+\hrulefill & \hrulefill \\
+Place, Date & Signature \\
+\end{tabular}
 
 \end{document}
