@@ -1,0 +1,3 @@
+Test,Strategy,Statistic,Null/Threshold,p_or_prob
+Deflated Sharpe Ratio,ML-TPF,0.6096,0.1471,0.9766
+White Reality Check,ML-TPF,0.005008,max over 9 strats,0.56
