@@ -149,8 +149,8 @@ def main():
             columns=["Calm","Trans","Crisis"],
         ).round(3).to_string())
 
-    # 3c. ML (GMM + RF) walk-forward
-    print("\nFitting ML pipeline (GMM + RF, walk-forward) …")
+    # 3c. ML (GMM + supervised forecaster) walk-forward
+    print(f"\nFitting ML pipeline (GMM + {CFG.ML_FORECAST_MODEL}, walk-forward) …")
 
     # Build aligned next-day return targets
     # Targets: log_ret_sectors shifted by -1 (next-day return)
@@ -160,9 +160,13 @@ def main():
         gmm_n_init=CFG.GMM_N_INIT,
         gmm_covariance_type=CFG.GMM_COVARIANCE_TYPE,
         gmm_random_state=CFG.GMM_RANDOM_STATE,
+        forecast_model=CFG.ML_FORECAST_MODEL,
         rf_n_estimators=CFG.RF_N_ESTIMATORS,
         rf_max_depth=CFG.RF_MAX_DEPTH,
         rf_min_samples=CFG.RF_MIN_SAMPLES,
+        rf_max_features=CFG.RF_MAX_FEATURES,
+        gb_learning_rate=CFG.GB_LEARNING_RATE,
+        gb_l2_regularization=CFG.GB_L2_REGULARIZATION,
         rf_random_state=CFG.RF_RANDOM_STATE,
         rf_n_jobs=CFG.RF_N_JOBS,
     )

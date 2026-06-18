@@ -8,7 +8,7 @@ Step 1 — Unsupervised Regime Labeling:
     historical data into 3 regime states.
 
 Step 2 — Supervised Return Forecasting:
-    Three independent RandomForestRegressors (one per regime) trained on
+    Three independent supervised regressors (one per regime) trained on
     regime-specific data subsets to forecast next-day ETF log-returns.
 
 Walk-Forward:
@@ -20,7 +20,9 @@ import warnings
 import numpy as np
 import pandas as pd
 from sklearn.mixture import GaussianMixture
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import ExtraTreesRegressor, RandomForestRegressor
+from sklearn.multioutput import MultiOutputRegressor
+from sklearn.ensemble import HistGradientBoostingRegressor
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -78,36 +80,92 @@ def predict_gmm_proba(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  REGIME-SPECIALIST RANDOM FOREST FORECASTERS
+#  REGIME-SPECIALIST SUPERVISED FORECASTERS
 # ─────────────────────────────────────────────────────────────────────────────
 
-class RegimeForestEnsemble:
+class RegimeForecastEnsemble:
     """
-    Container for 3 regime-specific RandomForestRegressors.
+    Container for regime-specific supervised return forecasters.
     Each model is trained independently on its regime's data.
     """
 
     def __init__(
         self,
         n_regimes: int = 3,
+        model_type: str = "random_forest",
         n_estimators: int = 300,
         max_depth: int = 5,
         min_samples_leaf: int = 20,
+        max_features: float | str | None = 1.0,
+        learning_rate: float = 0.05,
+        l2_regularization: float = 0.0,
         random_state: int = 42,
         n_jobs: int = -1,
     ):
         self.n_regimes = n_regimes
+        self.model_type = model_type
         self.models = [
-            RandomForestRegressor(
+            self._make_model(
                 n_estimators=n_estimators,
                 max_depth=max_depth,
                 min_samples_leaf=min_samples_leaf,
+                max_features=max_features,
+                learning_rate=learning_rate,
+                l2_regularization=l2_regularization,
                 random_state=random_state,
                 n_jobs=n_jobs,
             )
             for _ in range(n_regimes)
         ]
         self._fitted = [False] * n_regimes
+
+    def _make_model(
+        self,
+        n_estimators: int,
+        max_depth: int | None,
+        min_samples_leaf: int,
+        max_features: float | str | None,
+        learning_rate: float,
+        l2_regularization: float,
+        random_state: int,
+        n_jobs: int,
+    ):
+        model_type = self.model_type.lower()
+        if model_type in {"rf", "random_forest"}:
+            return RandomForestRegressor(
+                n_estimators=n_estimators,
+                max_depth=max_depth,
+                min_samples_leaf=min_samples_leaf,
+                max_features=max_features,
+                random_state=random_state,
+                n_jobs=n_jobs,
+            )
+        if model_type in {"et", "extra_trees", "extratrees"}:
+            return ExtraTreesRegressor(
+                n_estimators=n_estimators,
+                max_depth=max_depth,
+                min_samples_leaf=min_samples_leaf,
+                max_features=max_features,
+                random_state=random_state,
+                n_jobs=n_jobs,
+            )
+        if model_type in {"hgb", "hist_gradient_boosting"}:
+            return MultiOutputRegressor(
+                HistGradientBoostingRegressor(
+                    max_iter=n_estimators,
+                    max_leaf_nodes=31,
+                    max_depth=max_depth,
+                    min_samples_leaf=min_samples_leaf,
+                    learning_rate=learning_rate,
+                    l2_regularization=l2_regularization,
+                    random_state=random_state,
+                ),
+                n_jobs=n_jobs,
+            )
+        raise ValueError(
+            "Unsupported supervised ML model. "
+            "Use 'random_forest', 'extra_trees', or 'hist_gradient_boosting'."
+        )
 
     def fit(
         self,
@@ -175,11 +233,15 @@ class RegimeForestEnsemble:
 
     def feature_importances(self) -> dict:
         """Return feature importances per regime (for interpretation)."""
-        return {
-            r: self.models[r].feature_importances_
-            for r in range(self.n_regimes)
-            if self._fitted[r]
-        }
+        importances = {}
+        for r in range(self.n_regimes):
+            if self._fitted[r] and hasattr(self.models[r], "feature_importances_"):
+                importances[r] = self.models[r].feature_importances_
+        return importances
+
+
+# Backwards-compatible name used by older notebooks.
+RegimeForestEnsemble = RegimeForecastEnsemble
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -190,7 +252,7 @@ class MLRegimePipeline:
     """
     Full decoupled ML pipeline:
       1. GMM clustering on [ΔVIX, log-returns] → regime labels
-      2. Regime-specific Random Forests → next-day return forecasts
+      2. Regime-specific supervised regressors → next-day return forecasts
 
     Supports walk-forward expanding-window retraining.
     """
@@ -201,9 +263,13 @@ class MLRegimePipeline:
         gmm_n_init: int = 20,
         gmm_covariance_type: str = "full",
         gmm_random_state: int = 42,
+        forecast_model: str = "random_forest",
         rf_n_estimators: int = 300,
         rf_max_depth: int = 5,
         rf_min_samples: int = 20,
+        rf_max_features: float | str | None = 1.0,
+        gb_learning_rate: float = 0.05,
+        gb_l2_regularization: float = 0.0,
         rf_random_state: int = 42,
         rf_n_jobs: int = -1,
     ):
@@ -214,9 +280,13 @@ class MLRegimePipeline:
             random_state=gmm_random_state,
         )
         self.rf_kwargs = dict(
+            model_type=forecast_model,
             n_estimators=rf_n_estimators,
             max_depth=rf_max_depth,
             min_samples_leaf=rf_min_samples,
+            max_features=rf_max_features,
+            learning_rate=gb_learning_rate,
+            l2_regularization=gb_l2_regularization,
             random_state=rf_random_state,
             n_jobs=rf_n_jobs,
         )
@@ -227,14 +297,14 @@ class MLRegimePipeline:
     def fit(
         self,
         X_gmm: np.ndarray,     # Features for GMM (ΔVIX + returns)
-        X_rf: np.ndarray,      # Features for RF (macro + lagged returns)
+        X_rf: np.ndarray,      # Forecasting features (macro + lagged returns)
         y_rf: np.ndarray,      # Next-day return targets (T, n_assets)
     ) -> "MLRegimePipeline":
         """
         Full in-sample fit.
           1. Fit GMM on X_gmm
           2. Label training data
-          3. Fit regime-specific RF ensemble
+          3. Fit regime-specific supervised forecasting ensemble
         """
         # Step 1: GMM clustering
         gmm, order = fit_gmm(X_gmm, **self.gmm_kwargs)
@@ -250,8 +320,8 @@ class MLRegimePipeline:
         y_rf_   = y_rf[-n:]
         labels_ = labels[-n:]
 
-        # Step 4: Train regime-specific RFs
-        ensemble = RegimeForestEnsemble(
+        # Step 4: Train regime-specific supervised forecasters
+        ensemble = RegimeForecastEnsemble(
             n_regimes=self.gmm_kwargs["n_components"],
             **self.rf_kwargs,
         )
@@ -275,7 +345,7 @@ class MLRegimePipeline:
         """
         Two-step prediction:
           1. Predict regime from X_gmm
-          2. Query corresponding RF specialist for return forecasts
+          2. Query corresponding regime specialist for return forecasts
         """
         labels = self.predict_regime(X_gmm)
         return self.ensemble_.predict(X_rf, labels)
@@ -283,7 +353,7 @@ class MLRegimePipeline:
 
 def fit_ml_walkforward(
     gmm_features: pd.DataFrame,    # aligned DataFrame (ΔVIX + returns)
-    rf_features:  pd.DataFrame,    # aligned DataFrame (macro + lags)
+    rf_features:  pd.DataFrame,    # aligned forecasting features (macro + lags)
     log_returns:  pd.DataFrame,    # next-day targets (sector ETFs only)
     min_train_days: int = 504,
     refit_freq:     int = 252,
@@ -295,7 +365,7 @@ def fit_ml_walkforward(
     Returns
     -------
     ml_regime_labels : pd.Series[int]  (OOS regime labels from GMM)
-    ml_return_preds  : pd.DataFrame    (OOS return forecasts from RF)
+    ml_return_preds  : pd.DataFrame    (OOS return forecasts)
     last_pipeline    : MLRegimePipeline (last retrained pipeline)
     """
     if ml_kwargs is None:

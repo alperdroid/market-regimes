@@ -84,11 +84,15 @@ GMM_RANDOM_STATE   = 42
 # ─────────────────────────────────────────────
 # RANDOM FOREST SETTINGS (Step 2 of ML Pipeline)
 # ─────────────────────────────────────────────
+ML_FORECAST_MODEL = "extra_trees"  # random_forest, extra_trees, hist_gradient_boosting
 RF_N_ESTIMATORS  = 300
-RF_MAX_DEPTH     = 5
-RF_MIN_SAMPLES   = 20
+RF_MAX_DEPTH     = 6
+RF_MIN_SAMPLES   = 15
+RF_MAX_FEATURES  = 0.7
+GB_LEARNING_RATE = 0.05
+GB_L2_REGULARIZATION = 0.01
 RF_RANDOM_STATE  = 42
-RF_N_JOBS        = -1
+RF_N_JOBS        = 1
 RF_LAG_DAYS      = [1, 2, 3, 5]   # lagged return features
 
 # ─────────────────────────────────────────────
