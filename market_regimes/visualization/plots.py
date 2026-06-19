@@ -15,7 +15,7 @@ Figures generated:
   08_performance_table.png          Formatted KPI table
   09_drawdown_profiles.png          Underwater (drawdown) plot
   10_breakeven_costs.png            SR vs. transaction cost sweep
-  11_feature_importances.png        RF feature importances per regime
+  11_feature_importances.png        Extra Trees feature importances per regime
 """
 
 import os
@@ -58,6 +58,8 @@ STRATEGY_COLORS = {
     "HMM-TPF":    "#E67E22",
     "ML-MVP":     "#E74C3C",
     "ML-TPF":     "#C0392B",
+    "Ensemble-MVP": "#A855F7",
+    "Ensemble-TPF": "#7C3AED",
 }
 
 SECTOR_COLORS = [
@@ -103,6 +105,20 @@ def _apply_theme(fig, axes_list=None):
             for spine in ax.spines.values():
                 spine.set_color(PALETTE["border"])
             ax.grid(True, color=PALETTE["border"], alpha=0.5, linewidth=0.5)
+
+
+def _caption_below(fig, text: str, y: float = 0.012):
+    """Place the main figure caption below the plotting area."""
+    fig.text(
+        0.5,
+        y,
+        text,
+        ha="center",
+        va="bottom",
+        fontsize=10,
+        fontweight="bold",
+        color=PALETTE["text"],
+    )
 
 
 def _save(fig, path: str, dpi: int = 180):
@@ -166,8 +182,7 @@ def plot_regime_timeline(
     ], loc="upper left", facecolor=PALETTE["panel"],
        labelcolor=PALETTE["text"], fontsize=8, framealpha=0.8)
 
-    ax.set_title("Figure 1 — US Market Regime Timeline: VIX-Defined Regimes (2004–2025)",
-                 fontsize=11, fontweight="bold", color=PALETTE["text"], pad=12)
+    _caption_below(fig, "Figure 1 - US Market Regime Timeline: VIX-Defined Regimes (2004-2025)")
     ax.set_xlabel("Date", fontsize=9)
     ax.set_ylabel("VIX Level", fontsize=9)
     ax.set_xlim(common[0], common[-1])
@@ -183,18 +198,21 @@ def plot_regime_comparison(
     hmm_regimes: pd.Series,
     ml_regimes:  pd.Series,
     out_dir: str,
+    ensemble_regimes: pd.Series = None,
 ):
-    common = (
-        vix_regimes.index
-        .intersection(hmm_regimes.index)
-        .intersection(ml_regimes.index)
-        .sort_values()
-    )
-    df = pd.DataFrame({
+    common = vix_regimes.index.intersection(hmm_regimes.index).intersection(ml_regimes.index)
+    if ensemble_regimes is not None:
+        common = common.intersection(ensemble_regimes.index)
+    common = common.sort_values()
+
+    data = {
         "VIX Rules": vix_regimes.loc[common].values,
         "HMM":       hmm_regimes.loc[common].values,
         "GMM (ML)":  ml_regimes.loc[common].values,
-    }, index=common).T
+    }
+    if ensemble_regimes is not None:
+        data["Ensemble"] = ensemble_regimes.loc[common].values
+    df = pd.DataFrame(data, index=common).T
 
     # Subsample monthly for readability
     monthly_idx = pd.date_range(common[0], common[-1], freq="MS")
@@ -208,8 +226,9 @@ def plot_regime_comparison(
     im = ax.imshow(df_plot.values, aspect="auto", cmap=cmap,
                    vmin=0, vmax=2, interpolation="nearest")
 
-    ax.set_yticks([0, 1, 2])
-    ax.set_yticklabels(["VIX Rules", "HMM", "GMM (ML)"],
+    ytick_pos = list(range(len(df_plot.index)))
+    ax.set_yticks(ytick_pos)
+    ax.set_yticklabels(df_plot.index.tolist(),
                        color=PALETTE["text"], fontsize=9)
     n_ticks = min(10, len(df_plot.columns))
     tick_pos = np.linspace(0, len(df_plot.columns)-1, n_ticks, dtype=int)
@@ -226,8 +245,7 @@ def plot_regime_comparison(
     ]
     ax.legend(handles=patches, loc="lower right", facecolor=PALETTE["panel"],
               labelcolor=PALETTE["text"], fontsize=8, framealpha=0.8)
-    ax.set_title("Figure 2 — Regime Agreement: VIX Rules vs. HMM vs. GMM (ML)",
-                 fontsize=11, fontweight="bold", color=PALETTE["text"], pad=12)
+    _caption_below(fig, "Figure 2 - Regime Agreement: VIX, HMM, GMM (ML), and Ensemble")
     _save(fig, os.path.join(out_dir, "02_regime_comparison_heatmap.png"))
 
 
@@ -262,8 +280,7 @@ def plot_transition_matrix(
     ax.set_yticklabels(labels, color=PALETTE["text"], fontsize=9)
     ax.set_xlabel("To State", fontsize=9)
     ax.set_ylabel("From State", fontsize=9)
-    ax.set_title("Figure 3 — HMM Transition Probability Matrix",
-                 fontsize=11, fontweight="bold", color=PALETTE["text"], pad=12)
+    _caption_below(fig, "Figure 3 - HMM Transition Probability Matrix")
     _save(fig, os.path.join(out_dir, "03_transition_matrix.png"))
 
 
@@ -312,11 +329,8 @@ def plot_return_distributions(
                   fontsize=7, framealpha=0.8)
         ax.set_xlim(-0.12, 0.12)
 
-    fig.suptitle(
-        "Figure 4 — Regime-Conditional Return Distributions (KDE)",
-        fontsize=11, fontweight="bold", color=PALETTE["text"], y=1.02
-    )
-    plt.tight_layout()
+    _caption_below(fig, "Figure 4 - Regime-Conditional Return Distributions (KDE)")
+    plt.tight_layout(rect=[0, 0.07, 1, 1])
     _save(fig, os.path.join(out_dir, "04_return_distributions.png"))
 
 
@@ -356,8 +370,7 @@ def plot_capm_betas(
     ax.set_xticklabels(x_labels, rotation=0, ha="center",
                        color=PALETTE["text"], fontsize=7.5)
     ax.set_ylabel("CAPM Beta (β)", fontsize=9)
-    ax.set_title("Figure 5 — Regime-Conditional CAPM Betas: 9 Sector ETFs × 3 States",
-                 fontsize=11, fontweight="bold", color=PALETTE["text"], pad=12)
+    _caption_below(fig, "Figure 5 - Regime-Conditional CAPM Betas: 9 Sector ETFs x 3 States")
     ax.legend(facecolor=PALETTE["panel"], labelcolor=PALETTE["text"],
               fontsize=8, framealpha=0.8)
     ax.set_ylim(-0.2, 2.0)
@@ -373,7 +386,7 @@ def plot_portfolio_weights(
     strategies_to_plot: list = None,
 ):
     if strategies_to_plot is None:
-        strategies_to_plot = ["HMM-MVP", "ML-MVP"]
+        strategies_to_plot = ["HMM-MVP", "ML-MVP", "Ensemble-MVP"]
 
     avail = [s for s in strategies_to_plot if s in weight_history]
     if not avail:
@@ -401,9 +414,8 @@ def plot_portfolio_weights(
         ax.legend(legend_labels, loc="upper left", facecolor=PALETTE["panel"],
                   labelcolor=PALETTE["text"], fontsize=6, ncol=3, framealpha=0.8)
 
-    fig.suptitle("Figure 6 — Dynamic Portfolio Weights Over Time",
-                 fontsize=11, fontweight="bold", color=PALETTE["text"], y=1.01)
-    plt.tight_layout()
+    _caption_below(fig, "Figure 6 - Dynamic Portfolio Weights Over Time")
+    plt.tight_layout(rect=[0, 0.07, 1, 1])
     _save(fig, os.path.join(out_dir, "06_portfolio_weights.png"))
 
 
@@ -436,8 +448,7 @@ def plot_cumulative_wealth(
     ))
     ax.set_ylabel("Cumulative Wealth ($)", fontsize=9)
     ax.set_xlabel("Date", fontsize=9)
-    ax.set_title("Figure 7 — Cumulative Wealth (Log Scale) — All Strategies vs. Benchmarks",
-                 fontsize=11, fontweight="bold", color=PALETTE["text"], pad=12)
+    _caption_below(fig, "Figure 7 - Cumulative Wealth (Log Scale) - All Strategies vs. Benchmarks")
     ax.legend(facecolor=PALETTE["panel"], labelcolor=PALETTE["text"],
               fontsize=7, ncol=2, framealpha=0.8, loc="upper left")
     ax.set_xlim(wealth_df.index[0], wealth_df.index[-1])
@@ -481,9 +492,7 @@ def plot_performance_table(perf_df: pd.DataFrame, out_dir: str):
         if row > 0 and col == col_labels.index("Sharpe") if "Sharpe" in col_labels else -1:
             pass
 
-    ax.set_title("Figure 8 — Strategy Performance Summary Table",
-                 fontsize=11, fontweight="bold", color=PALETTE["text"],
-                 pad=20, loc="center")
+    _caption_below(fig, "Figure 8 - Strategy Performance Summary Table")
     _save(fig, os.path.join(out_dir, "08_performance_table.png"))
 
 
@@ -495,7 +504,10 @@ def plot_drawdown_profiles(
     out_dir: str,
     top_n: int = 6,
 ):
-    strategies = ["SPY B&H", "EW 1/N", "HMM-MVP", "HMM-TPF", "ML-MVP", "ML-TPF"]
+    strategies = [
+        "SPY B&H", "EW 1/N", "HMM-MVP", "HMM-TPF", "ML-MVP", "ML-TPF",
+        "Ensemble-MVP", "Ensemble-TPF",
+    ]
     available  = [s for s in strategies if s in wealth_df.columns]
 
     fig, ax = plt.subplots(figsize=(14, 5))
@@ -512,8 +524,7 @@ def plot_drawdown_profiles(
     ax.set_ylabel("Drawdown (%)", fontsize=9)
     ax.set_xlabel("Date", fontsize=9)
     ax.yaxis.set_major_formatter(mtick.PercentFormatter(xmax=1.0))
-    ax.set_title("Figure 9 — Drawdown (Underwater) Profiles — Selected Strategies",
-                 fontsize=11, fontweight="bold", color=PALETTE["text"], pad=12)
+    _caption_below(fig, "Figure 9 - Drawdown (Underwater) Profiles - Selected Strategies")
     ax.legend(facecolor=PALETTE["panel"], labelcolor=PALETTE["text"],
               fontsize=8, framealpha=0.8)
     ax.set_xlim(wealth_df.index[0], wealth_df.index[-1])
@@ -533,7 +544,10 @@ def plot_breakeven_costs(
     """
     Plot Sharpe ratio vs. one-way transaction cost for active strategies.
     """
-    active = ["Static MVP", "VIX-MVP", "VIX-TPF", "HMM-MVP", "HMM-TPF", "ML-MVP", "ML-TPF"]
+    active = [
+        "Static MVP", "VIX-MVP", "VIX-TPF", "HMM-MVP", "HMM-TPF", "ML-MVP", "ML-TPF",
+        "Ensemble-MVP", "Ensemble-TPF",
+    ]
     active = [s for s in active if s in port_returns.columns]
 
     fig, ax = plt.subplots(figsize=(10, 5))
@@ -561,8 +575,7 @@ def plot_breakeven_costs(
     ax.axhline(0, color=PALETTE["border"], lw=0.6)
     ax.set_xlabel("One-Way Transaction Cost (bps)", fontsize=9)
     ax.set_ylabel("Adjusted Sharpe Ratio", fontsize=9)
-    ax.set_title("Figure 10 — Break-Even Transaction Cost Analysis",
-                 fontsize=11, fontweight="bold", color=PALETTE["text"], pad=12)
+    _caption_below(fig, "Figure 10 - Break-Even Transaction Cost Analysis")
     ax.legend(facecolor=PALETTE["panel"], labelcolor=PALETTE["text"],
               fontsize=8, framealpha=0.8)
     ax.set_xlim(cost_range_bps[0], cost_range_bps[-1])
@@ -570,7 +583,7 @@ def plot_breakeven_costs(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  FIGURE 11 — RF Feature Importances
+#  FIGURE 11 — Extra Trees Feature Importances
 # ─────────────────────────────────────────────────────────────────────────────
 def plot_feature_importances(
     feature_importances: dict,   # regime_code → np.ndarray
@@ -610,9 +623,8 @@ def plot_feature_importances(
         ax.set_title(f"{regime_names[code]} Regime",
                      fontsize=9, fontweight="bold", color=PALETTE["text"])
 
-    fig.suptitle("Figure 11 — Random Forest Feature Importances per Regime",
-                 fontsize=11, fontweight="bold", color=PALETTE["text"], y=1.02)
-    plt.tight_layout()
+    _caption_below(fig, "Figure 11 - Extra Trees Feature Importances per Regime")
+    plt.tight_layout(rect=[0, 0.07, 1, 1])
     _save(fig, os.path.join(out_dir, "11_feature_importances.png"))
 
 
@@ -644,7 +656,8 @@ def generate_all_figures(
 
     # 2
     plot_regime_comparison(
-        data["vix_regimes"], data["hmm_regimes"], data["ml_regimes"], out_dir
+        data["vix_regimes"], data["hmm_regimes"], data["ml_regimes"], out_dir,
+        ensemble_regimes=data.get("ensemble_regimes"),
     )
 
     # 3

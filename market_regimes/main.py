@@ -37,6 +37,7 @@ from data.features import (
 from regimes.vix_classifier import classify_vix_regimes, regime_statistics
 from regimes.hmm_model      import HMMRegimeModel, fit_hmm_walkforward
 from regimes.ml_pipeline    import fit_ml_walkforward
+from regimes.ensemble       import majority_vote_regimes
 
 from portfolio.ledoit_wolf import robust_covariance
 from portfolio.backtest    import (
@@ -184,6 +185,12 @@ def main():
           f"Trans={(ml_regimes==1).sum()}, "
           f"Crisis={(ml_regimes==2).sum()}]")
 
+    ensemble_regimes = majority_vote_regimes(vix_regimes, hmm_regimes, ml_regimes)
+    print(f"  Ensemble labels:   {len(ensemble_regimes)} days  "
+          f"[Calm={( ensemble_regimes==0).sum()}, "
+          f"Trans={(ensemble_regimes==1).sum()}, "
+          f"Crisis={(ensemble_regimes==2).sum()}]")
+
     # ═══════════════════════════════════════════════════════════════
     # 4.  CAPM BETA ANALYSIS
     # ═══════════════════════════════════════════════════════════════
@@ -207,6 +214,7 @@ def main():
         .intersection(vix_regimes.index)
         .intersection(hmm_regimes.index)
         .intersection(ml_regimes.index)
+        .intersection(ensemble_regimes.index)
         .sort_values()
     )
     print(f"  Common backtest window: {common_idx[0].date()} → {common_idx[-1].date()} "
@@ -225,6 +233,7 @@ def main():
         vix_regimes=vix_regimes,
         hmm_regimes=hmm_regimes,
         ml_regimes=ml_regimes,
+        ensemble_regimes=ensemble_regimes,
         ml_return_preds=ml_preds_aligned,
         rolling_window=CFG.ROLLING_WINDOW,
         rebalance_freq=CFG.REBALANCE_FREQ,
@@ -248,6 +257,7 @@ def main():
         vix_regimes=vix_regimes,
         hmm_regimes=hmm_regimes,
         ml_regimes=ml_regimes,
+        ensemble_regimes=ensemble_regimes,
         ml_return_preds=ml_preds_aligned,
         rolling_window=CFG.ROLLING_WINDOW,
         rebalance_freq=CFG.REBALANCE_FREQ,
@@ -290,7 +300,7 @@ def main():
         gross_returns.to_csv(os.path.join(CFG.RESULTS_DIR, "port_returns_gross.csv"))
 
     # ── Multiple-testing / data-snooping corrections ──────────────────────────
-    print("\nData-Snooping Corrections (10 strategies searched):")
+    print("\nMultiple-Testing Corrections (active strategies searched):")
     candidates = port_returns.drop(columns=["SPY B&H"], errors="ignore")
     dsr = deflated_sharpe_ratio(candidates)
     rc  = whites_reality_check(port_returns, excess_spy, n_boot=2000, avg_block=10.0)
@@ -332,6 +342,7 @@ def main():
         "vix_regimes":     vix_regimes,
         "hmm_regimes":     hmm_regimes,
         "ml_regimes":      ml_regimes,
+        "ensemble_regimes": ensemble_regimes,
         "hmm_model":       hmm_last_model,
         "log_returns":     log_ret_sectors,
         "excess_returns":  excess_sectors,

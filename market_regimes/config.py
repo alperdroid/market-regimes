@@ -152,6 +152,8 @@ STRATEGIES = [
     "HMM-TPF",
     "ML-MVP",
     "ML-TPF",
+    "Ensemble-MVP",
+    "Ensemble-TPF",
 ]
 
 # ─────────────────────────────────────────────

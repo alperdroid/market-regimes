@@ -41,6 +41,8 @@ STRATEGY_NAMES = [
     "HMM-TPF",
     "ML-MVP",
     "ML-TPF",
+    "Ensemble-MVP",
+    "Ensemble-TPF",
 ]
 
 
@@ -75,6 +77,7 @@ def run_backtest(
     vix_regimes:     pd.Series,        # (T,) VIX regime labels {0,1,2}
     hmm_regimes:     pd.Series,        # (T,) HMM regime labels  {0,1,2}
     ml_regimes:      pd.Series,        # (T,) ML  regime labels  {0,1,2}
+    ensemble_regimes: pd.Series,       # (T,) ensemble regime labels {0,1,2}
     ml_return_preds: pd.DataFrame,     # (T, N) ML-forecasted returns
     rolling_window:  int   = 252,
     rebalance_freq:  int   = 21,
@@ -98,6 +101,7 @@ def run_backtest(
         .intersection(vix_regimes.index)
         .intersection(hmm_regimes.index)
         .intersection(ml_regimes.index)
+        .intersection(ensemble_regimes.index)
         .sort_values()
     )
 
@@ -107,6 +111,7 @@ def run_backtest(
     vr   = vix_regimes.reindex(common_idx).ffill().bfill().astype(int)
     hr   = hmm_regimes.reindex(common_idx).ffill().bfill().astype(int)
     mr   = ml_regimes.reindex(common_idx).ffill().bfill().astype(int)
+    ergr = ensemble_regimes.reindex(common_idx).ffill().bfill().astype(int)
     mlp  = ml_return_preds.reindex(common_idx).ffill().bfill()
 
     T, N = er.shape
@@ -124,6 +129,8 @@ def run_backtest(
     w_hmm_tpf     = np.ones(N) / N
     w_ml_mvp      = np.ones(N) / N
     w_ml_tpf      = np.ones(N) / N
+    w_ens_mvp     = np.ones(N) / N
+    w_ens_tpf     = np.ones(N) / N
     w_ew          = np.ones(N) / N
 
     # Daily portfolio returns (excess), net of transaction costs
@@ -141,6 +148,7 @@ def run_backtest(
     vr_np_ = vr.to_numpy()
     hr_np_ = hr.to_numpy()
     mr_np_ = mr.to_numpy()
+    ergr_np_ = ergr.to_numpy()
 
     def _regime_moments(regime_arr: np.ndarray, t: int) -> dict:
         moments = {}
@@ -160,6 +168,7 @@ def run_backtest(
         regime_vix = int(vr_np_[t])
         regime_hmm = int(hr_np_[t])
         regime_ml  = int(mr_np_[t])
+        regime_ens = int(ergr_np_[t])
         today_ret  = er_np_[t]
         spy_ret    = float(spy.iloc[t])
 
@@ -189,6 +198,7 @@ def run_backtest(
             vix_mom = _regime_moments(vr_np_, t)
             hmm_mom = _regime_moments(hr_np_, t)
             ml_mom  = _regime_moments(mr_np_, t)
+            ens_mom = _regime_moments(ergr_np_, t)
 
             # --- VIX-gated MVP ---
             mu_v, sg_v = vix_mom[regime_vix]["mu"], vix_mom[regime_vix]["sigma"]
@@ -227,6 +237,18 @@ def run_backtest(
             day_turn[9] = _compute_turnover(w_ml_tpf, w_new)
             w_ml_tpf = w_new
 
+            # --- Ensemble-gated MVP ---
+            mu_e, sg_e = ens_mom[regime_ens]["mu"], ens_mom[regime_ens]["sigma"]
+            w_new = compute_portfolio_weights(mu_e, sg_e, "mvp", rf_t,
+                                              regime_ens, crisis_cash)
+            day_turn[10] = _compute_turnover(w_ens_mvp, w_new)
+            w_ens_mvp = w_new
+            # --- Ensemble-gated TPF ---
+            w_new = compute_portfolio_weights(mu_e, sg_e, "tpf", rf_t,
+                                              regime_ens, crisis_cash)
+            day_turn[11] = _compute_turnover(w_ens_tpf, w_new)
+            w_ens_tpf = w_new
+
             turnover_accum += day_turn
 
         # ── Daily gross portfolio returns (excess) ────────────────────────────
@@ -241,6 +263,8 @@ def run_backtest(
             float(w_hmm_tpf @ today_ret),     # HMM-TPF
             float(w_ml_mvp @ today_ret),      # ML-MVP
             float(w_ml_tpf @ today_ret),      # ML-TPF
+            float(w_ens_mvp @ today_ret),     # Ensemble-MVP
+            float(w_ens_tpf @ today_ret),     # Ensemble-TPF
         ])
 
         # ── Subtract one-way transaction costs charged on today's turnover ────
@@ -291,6 +315,7 @@ def weight_history(
     vix_regimes:     pd.Series,
     hmm_regimes:     pd.Series,
     ml_regimes:      pd.Series,
+    ensemble_regimes: pd.Series,
     ml_return_preds: pd.DataFrame,
     rolling_window:  int = 252,
     rebalance_freq:  int = 21,
@@ -307,6 +332,7 @@ def weight_history(
         .intersection(vix_regimes.index)
         .intersection(hmm_regimes.index)
         .intersection(ml_regimes.index)
+        .intersection(ensemble_regimes.index)
         .sort_values()
     )
     er  = excess_returns.loc[common_idx]
@@ -314,17 +340,22 @@ def weight_history(
     vr  = vix_regimes.reindex(common_idx).ffill().bfill().astype(int)
     hr  = hmm_regimes.reindex(common_idx).ffill().bfill().astype(int)
     mr  = ml_regimes.reindex(common_idx).ffill().bfill().astype(int)
+    ergr = ensemble_regimes.reindex(common_idx).ffill().bfill().astype(int)
     mlp = ml_return_preds.reindex(common_idx).ffill().bfill()
     T, N = er.shape
     cols = er.columns.tolist()
     dates = common_idx
 
-    strategies = ["VIX-MVP", "VIX-TPF", "HMM-MVP", "HMM-TPF", "ML-MVP", "ML-TPF"]
+    strategies = [
+        "VIX-MVP", "VIX-TPF", "HMM-MVP", "HMM-TPF", "ML-MVP", "ML-TPF",
+        "Ensemble-MVP", "Ensemble-TPF",
+    ]
     wh = {s: pd.DataFrame(np.nan, index=dates, columns=cols) for s in strategies}
 
     w_vix_mvp = np.ones(N)/N; w_vix_tpf = np.ones(N)/N
     w_hmm_mvp = np.ones(N)/N; w_hmm_tpf = np.ones(N)/N
     w_ml_mvp  = np.ones(N)/N; w_ml_tpf  = np.ones(N)/N
+    w_ens_mvp = np.ones(N)/N; w_ens_tpf = np.ones(N)/N
 
     rebal_days = set(_rebalance_schedule(dates, rebalance_freq))
 
@@ -332,11 +363,13 @@ def weight_history(
     vr_np = vr.to_numpy()
     hr_np = hr.to_numpy()
     mr_np = mr.to_numpy()
+    ergr_np = ergr.to_numpy()
     er_np = er.to_numpy()
 
     for t in range(rolling_window, T):
         rf_t = float(rf.iloc[t])
         rv, rh, rm = int(vr_np[t]), int(hr_np[t]), int(mr_np[t])
+        re = int(ergr_np[t])
 
         if t in rebal_days:
             def _mom(regime_arr):
@@ -350,7 +383,7 @@ def weight_history(
                     }
                 return moments
 
-            vm = _mom(vr_np); hm = _mom(hr_np); mm = _mom(mr_np)
+            vm = _mom(vr_np); hm = _mom(hr_np); mm = _mom(mr_np); em = _mom(ergr_np)
 
             mu_ml = (mlp.iloc[t].to_numpy() if not mlp.iloc[t].isna().all()
                      else er_np[:t].mean(axis=0))
@@ -361,6 +394,8 @@ def weight_history(
             w_hmm_tpf = compute_portfolio_weights(hm[rh]["mu"], hm[rh]["sigma"], "tpf", rf_t, rh, crisis_cash)
             w_ml_mvp  = compute_portfolio_weights(mu_ml - rf_t, mm[rm]["sigma"], "mvp", rf_t, rm, crisis_cash)
             w_ml_tpf  = compute_portfolio_weights(mu_ml - rf_t, mm[rm]["sigma"], "tpf", rf_t, rm, crisis_cash)
+            w_ens_mvp = compute_portfolio_weights(em[re]["mu"], em[re]["sigma"], "mvp", rf_t, re, crisis_cash)
+            w_ens_tpf = compute_portfolio_weights(em[re]["mu"], em[re]["sigma"], "tpf", rf_t, re, crisis_cash)
 
         d = dates[t]
         wh["VIX-MVP"].loc[d] = w_vix_mvp
@@ -369,5 +404,7 @@ def weight_history(
         wh["HMM-TPF"].loc[d] = w_hmm_tpf
         wh["ML-MVP"].loc[d]  = w_ml_mvp
         wh["ML-TPF"].loc[d]  = w_ml_tpf
+        wh["Ensemble-MVP"].loc[d] = w_ens_mvp
+        wh["Ensemble-TPF"].loc[d] = w_ens_tpf
 
     return {k: v.dropna(how="all") for k, v in wh.items()}
