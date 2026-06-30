@@ -114,11 +114,12 @@ def fit_gmm_walkforward(
     gmm_kwargs:     dict = None,
 ) -> tuple[pd.Series, "GMMRegimePipeline"]:
     """
-    Walk-forward expanding-window GMM regime labelling.
+    Walk-forward expanding-window GMM regime labelling, strictly predict-ahead.
 
-    At each refit point t the GMM is fitted on all data up to t and used to label
-    the out-of-sample window [prev_t : t]. This mirrors the HMM walk-forward exactly,
-    so the two classifiers are compared on an identical footing.
+    At each refit point t the GMM is fitted on data up to t (indices 0..t-1) and used to
+    label the *following* window [t : next_t]. The model therefore never sees the days it
+    labels, so every regime label is strictly out-of-sample. This mirrors the HMM
+    walk-forward exactly, so the two classifiers are compared on an identical footing.
 
     Returns
     -------
@@ -135,29 +136,22 @@ def fit_gmm_walkforward(
     regime_labels = pd.Series(index=dates, dtype=float, name="GMM_Regime")
 
     refit_points = list(range(min_train_days, T, refit_freq))
-    if T not in refit_points:
-        refit_points.append(T)
-
-    prev_t  = min_train_days
     pipeline = None
 
-    for t in refit_points:
-        pipeline = GMMRegimePipeline(**gmm_kwargs)
+    for i, t in enumerate(refit_points):
+        new_pipe = GMMRegimePipeline(**gmm_kwargs)
         try:
-            pipeline.fit(gmm_arr[:t])
+            new_pipe.fit(gmm_arr[:t])      # trained on days 0..t-1 only
+            pipeline = new_pipe
         except Exception as e:
-            print(f"  [GMM] Fit failed at t={t}: {e}")
-            if pipeline.gmm_ is None:
-                prev_t = t
-                continue
-
-        X_pred = gmm_arr[prev_t:t]
-        if len(X_pred) == 0:
-            prev_t = t
+            print(f"  [GMM] Fit failed at t={t}: {e}. Using previous model.")
+        if pipeline is None:
             continue
 
-        regime_labels.iloc[prev_t:t] = pipeline.predict_regime(X_pred)
-        prev_t = t
+        # Label the FOLLOWING window [t : next_t] — strictly out-of-sample
+        next_t = refit_points[i + 1] if i + 1 < len(refit_points) else T
+        if t < next_t:
+            regime_labels.iloc[t:next_t] = pipeline.predict_regime(gmm_arr[t:next_t])
 
     regime_labels = regime_labels.dropna().astype(int)
     return regime_labels, pipeline

@@ -170,6 +170,16 @@ def main():
           f"Trans={(ensemble_regimes==1).sum()}, "
           f"Crisis={(ensemble_regimes==2).sum()}]")
 
+    # Persist the out-of-sample regime labels so downstream checks (e.g. significance,
+    # diagnostics) can be re-run without refitting the slow regime models.
+    regime_labels_df = pd.DataFrame({
+        "VIX":      vix_regimes,
+        "HMM":      hmm_regimes,
+        "GMM":      gmm_regimes,
+        "Ensemble": ensemble_regimes,
+    }).dropna(how="all")
+    regime_labels_df.to_csv(os.path.join(CFG.RESULTS_DIR, "regime_labels.csv"))
+
     # ═══════════════════════════════════════════════════════════════
     # 4.  CAPM BETA ANALYSIS
     # ═══════════════════════════════════════════════════════════════

@@ -149,12 +149,13 @@ portfolios are formed each month by regime-conditional minimum-variance (MVP) an
 maximum-Sharpe tangency (TPF) optimisation with Ledoit--Wolf covariance shrinkage. We
 find that regime conditioning delivers a large and robust reduction in volatility and
 drawdown---the minimum-variance strategies cut the maximum drawdown from roughly $-60\%$
-(S\&P~500) to about $-37\%$ and raise the Sharpe ratio from $0.44$ to $0.50$--$0.57$---but
+(S\&P~500) to about $-37\%$ and raise the Sharpe ratio from $0.44$ to $0.48$--$0.54$---but
 that this gain comes entirely from risk targeting. Because all three classifiers feed an
 identical portfolio construction, the tangency (return-timing) variants fail uniformly, and
 no strategy out-returns the benchmark once data snooping is corrected for (White's Reality
-Check $p=0.98$; the highest-Sharpe strategy falls just short of the deflated-Sharpe
-threshold). We conclude that the economic value of regime-based tactical allocation in this
+Check $p=0.98$); the best strategy's risk-adjusted edge is only marginally significant after
+deflation and comes entirely from lower risk, not higher return. We conclude that the
+economic value of regime-based tactical allocation in this
 setting is concentrated in risk control rather than abnormal returns, and that it is largely
 insensitive to the sophistication of the regime classifier.
 \end{abstract}
@@ -463,13 +464,13 @@ standard deviation of the equal-weight sector return within each regime. Source:
 calculations based on data from Yahoo!\ Finance and FRED.}
 \end{table}
 
-The HMM recovers a more balanced and highly persistent partition (Calm 2{,}302 days,
-Transitional 2{,}220, Crisis 507). Its sorted transition matrix (Table~\ref{tab:trans})
+The HMM recovers a more balanced and highly persistent partition (Calm 2{,}590 days,
+Transitional 1{,}838, Crisis 601). Its sorted transition matrix (Table~\ref{tab:trans})
 shows three features: states are persistent (diagonal $0.81$--$0.90$); the economy never
 jumps \emph{directly} between Calm and Crisis but must pass through Transitional in both
 directions---the ``ramp-up / ramp-down'' dynamic a memoryless classifier cannot
-capture---and the Gaussian-mixture (GMM) labels (Calm 3{,}029,
-Transitional 1{,}603, Crisis 397) lack this temporal structure.
+capture---and the Gaussian-mixture (GMM) labels (Calm 3{,}078,
+Transitional 1{,}513, Crisis 438) lack this temporal structure.
 
 \begin{table}[H]
 \centering
@@ -480,9 +481,9 @@ Transitional 1{,}603, Crisis 397) lack this temporal structure.
 \toprule
 From $\backslash$ To & Calm & Transitional & Crisis \\
 \midrule
-Calm         & 0.895 & 0.105 & 0.000 \\
-Transitional & 0.162 & 0.807 & 0.030 \\
-Crisis       & 0.000 & 0.166 & 0.834 \\
+Calm         & 0.905 & 0.095 & 0.000 \\
+Transitional & 0.160 & 0.810 & 0.030 \\
+Crisis       & 0.000 & 0.158 & 0.842 \\
 \bottomrule
 \end{tabular}
 \floatnote{Notes. Entries are estimated one-day transition probabilities
@@ -599,10 +600,10 @@ Static MVP  & 6.11 & 14.53 & 0.48 & 0.45 & $-38.2$ & 1.52 & 0.38  & 76  & 86.1  
 Static TPF  & 5.97 & 19.85 & 0.39 & 0.36 & $-48.8$ & 0.93 & 0.74  & 325 & 0.0   \\
 VIX-MVP     & 6.04 & 13.44 & 0.50 & 0.47 & $-34.4$ & 1.88 & 0.28  & 73  & 125.3 \\
 VIX-TPF     & 6.05 & 16.03 & 0.45 & 0.41 & $-32.2$ & 1.45 & 0.50  & 328 & 12.8  \\
-\textbf{HMM-MVP} & \textbf{7.04} & 13.67 & \textbf{0.57} & 0.53 & $-37.5$ & \textbf{2.82} & 0.12 & 117 & \textbf{155.9} \\
-HMM-TPF     & 4.46 & 18.14 & 0.33 & 0.31 & $-42.6$ & $-0.19$ & 0.94 & 508 & 0.0 \\
-GMM-MVP     & 6.39 & 13.87 & 0.52 & 0.48 & $-40.3$ & 2.14 & 0.24  & 78  & 143.6 \\
-GMM-TPF     & $-0.05$ & 20.21 & 0.10 & 0.09 & $-57.5$ & $-4.80$ & 0.11 & 386 & 0.0 \\
+HMM-MVP     & 6.19 & 13.95 & 0.50 & 0.47 & $-38.7$ & 2.03 & 0.29 & 122 & 77.5 \\
+HMM-TPF     & 5.16 & 15.73 & 0.40 & 0.37 & $-55.1$ & 0.48 & 0.81 & 464 & 0.0 \\
+\textbf{GMM-MVP} & \textbf{6.69} & 13.91 & \textbf{0.54} & 0.50 & $-39.8$ & \textbf{2.40} & 0.19 & 121 & \textbf{118.0} \\
+GMM-TPF     & 3.86 & 18.14 & 0.30 & 0.28 & $-44.5$ & $-0.93$ & 0.71 & 433 & 0.0 \\
 \bottomrule
 \end{tabular}}
 \floatnote{Notes. Daily out-of-sample excess returns, net of 10~bps one-way transaction
@@ -614,27 +615,26 @@ equals the S\&P~500's. Source: own calculations.}
 \end{table}
 
 Four patterns emerge. \emph{First}, the value of regime conditioning is overwhelmingly
-defensive: every minimum-variance strategy compresses volatility to roughly $13$--$14\%$
+defensive: every minimum-variance strategy compresses volatility to roughly $13$--$15\%$
 (versus $20\%$ for the S\&P~500) and the maximum drawdown to about $-34\%$ to $-40\%$
 (versus $-60\%$), while raising the Sharpe ratio above the benchmark's $0.44$ to between
-$0.50$ and $0.57$ (Figures~\ref{fig:wealth}--\ref{fig:dd}). \emph{Second}, na\"ive
+$0.48$ and $0.54$ (Figures~\ref{fig:wealth}--\ref{fig:dd}). \emph{Second}, na\"ive
 diversification disappoints: the $1/N$ portfolio underperforms the cap-weighted S\&P~500 on
 every risk-adjusted metric, a caution against reading \citet{demiguel2009} as an
 unconditional endorsement of equal weighting. \emph{Third}, and most tellingly, because all
 three classifiers feed an identical portfolio construction, the tangency (maximum-Sharpe)
-variants fail \emph{uniformly}: every TPF strategy underperforms its own minimum-variance
-counterpart, and several destroy value outright---the GMM tangency portfolio earns a
-\emph{negative} mean return (Sharpe $0.10$) and the HMM tangency portfolio a Sharpe of only
-$0.33$. Estimating expected returns from the regime-conditional historical mean is simply
-too noisy to time, whichever classifier supplies the regime. \emph{Fourth}, the
-minimum-variance strategies, which never touch the fragile expected-return estimate, are
-uniformly strong and remarkably similar across classifiers: HMM-MVP leads (Sharpe $0.57$,
-annual alpha $2.82\%$), with GMM-MVP ($0.52$) and VIX-MVP ($0.50$) close behind. That the
-memoryless GMM nearly matches the Markovian HMM, and that even the crude VIX rule is within
-reach, indicates that the gains come from \emph{risk targeting under any reasonable regime
-map}, not from the sophistication of the regime model. Figure~\ref{fig:weights} traces how
-the regime-conditional weights rotate toward defensive sectors and cash as the system
-enters Crisis.
+variants fail \emph{uniformly}: every TPF strategy underperforms both its own
+minimum-variance counterpart and the S\&P~500's $7\%$ return, with Sharpe ratios of only
+$0.30$--$0.45$ (the GMM tangency portfolio is weakest, at $0.30$). Estimating expected
+returns from the regime-conditional historical mean is simply too noisy to time, whichever
+classifier supplies the regime. \emph{Fourth}, the minimum-variance strategies, which never
+touch the fragile expected-return estimate, are uniformly strong and remarkably similar
+across classifiers: GMM-MVP leads (Sharpe $0.54$, annual alpha $2.40\%$), with HMM-MVP and
+VIX-MVP both at $0.50$. That the \emph{memoryless} GMM edges out the Markovian HMM, and that
+even the parameter-free VIX rule matches it, indicates that the gains come from \emph{risk
+targeting under any reasonable regime map}, not from the sophistication of the regime model.
+Figure~\ref{fig:weights} traces how the regime-conditional weights rotate toward defensive
+sectors and cash as the system enters Crisis.
 
 \begin{figure}[H]
 \centering
@@ -667,12 +667,12 @@ appears during Crisis regimes. Source: own illustration.}
 \subsection{Transaction costs and break-even}
 Measuring turnover directly is essential, because the strategies differ by an order of
 magnitude (Table~\ref{tab:perf}). The minimum-variance strategies trade modestly
-($73$--$117\%$ per year), but the tangency portfolios churn aggressively---between $325\%$
-and $508\%$ of capital annually. This asymmetry compounds the tangency portfolios' weak
+($73$--$122\%$ per year), but the tangency portfolios churn aggressively---between $325\%$
+and $464\%$ of capital annually. This asymmetry compounds the tangency portfolios' weak
 gross performance: the break-even analysis (Figure~\ref{fig:breakeven}) shows that every
 TPF strategy fails to match the S\&P~500 Sharpe \emph{even at zero cost} (break-even
-$\le 13$~bps), whereas the minimum-variance strategies are highly cost-tolerant---HMM-MVP
-absorbs $156$~bps of one-way cost, GMM-MVP $144$~bps, and VIX-MVP $125$~bps before their
+$\le 13$~bps), whereas the minimum-variance strategies are highly cost-tolerant---VIX-MVP
+absorbs $125$~bps of one-way cost, GMM-MVP $118$~bps, and Static MVP $86$~bps before their
 Sharpe falls to the benchmark's. The cost-robust strategies are precisely the low-turnover
 minimum-variance ones.
 
@@ -688,20 +688,20 @@ cost is the abscissa at which its curve crosses it. Source: own illustration.}
 
 \subsection{Statistical significance}
 No strategy's CAPM alpha is significant at the 5\% level on a single-equation basis; the
-best-performing strategy, HMM-MVP, comes closest at $p=0.12$. The relevant question,
+best-performing strategy, GMM-MVP, comes closest at $p=0.19$. The relevant question,
 however, is whether the \emph{best of all the strategies searched} is significant, which
 requires a multiple-testing correction (Table~\ref{tab:sig}).
 
 \begin{table}[H]
 \centering
-\caption{Data-snooping corrections for the best strategy (HMM-MVP).}
+\caption{Data-snooping corrections for the best strategy (GMM-MVP).}
 \label{tab:sig}
 \small
 \begin{tabular}{lll}
 \toprule
 Test & Statistic & Verdict \\
 \midrule
-Deflated Sharpe Ratio & $0.93$ (Sharpe $0.57$ vs.\ null $0.22$) & Not significant at 95\% \\
+Deflated Sharpe Ratio & $0.97$ (Sharpe $0.54$ vs.\ null $0.11$) & Marginally significant at 95\% \\
 White's Reality Check & $p=0.98$ (2{,}000 bootstraps) & Cannot reject $H_0$ \\
 \bottomrule
 \end{tabular}
@@ -713,17 +713,17 @@ $B=2{,}000$) of the null that the best strategy does not out-return the S\&P~500
 Source: own calculations.}
 \end{table}
 
-Neither correction finds robust outperformance. The Deflated Sharpe Ratio of the
-highest-Sharpe strategy, HMM-MVP, is $0.93$: its annualised Sharpe of $0.57$ exceeds the
-snooping-adjusted null threshold of $0.22$, but falls just short of the conventional $95\%$
-bar once the breadth of the search is accounted for---its risk-adjusted edge is suggestive
-rather than conclusive. White's Reality Check is unambiguous: with a bootstrap $p$-value of
-$0.98$, we \emph{cannot} reject the null that the best strategy fails to out-\emph{return}
-the S\&P~500, reflecting that no strategy in the study beats the benchmark on raw return at
-all. Together the two tests locate whatever value exists firmly in the
-\emph{denominator}: the regime-conditional strategies earn a return comparable to the index
-with materially less risk, but there is no evidence of return outperformance once data
-snooping and serial dependence are accounted for.
+The two corrections paint a coherent picture. The Deflated Sharpe Ratio of the
+highest-Sharpe strategy, GMM-MVP, is $0.97$: its annualised Sharpe of $0.54$ clears the
+snooping-adjusted null threshold of $0.11$, so its \emph{risk-adjusted} performance is
+marginally significant even after accounting for the breadth of the search. White's Reality
+Check, however, is unambiguous: with a bootstrap $p$-value of $0.98$, we \emph{cannot}
+reject the null that the best strategy fails to out-\emph{return} the S\&P~500, reflecting
+that no strategy in the study beats the benchmark on raw return at all. Together the two
+tests locate the value firmly in the \emph{denominator}: the best strategy earns a return
+comparable to the index with materially less risk---a statistically defensible improvement
+in risk-adjusted terms, but no evidence of return outperformance once data snooping and
+serial dependence are accounted for.
 
 % =====================================================================
 \section{Discussion}\label{sec:disc}
@@ -741,12 +741,12 @@ benchmarks with return forecasts \citep{demiguel2009}.
 The comparison across classifiers is instructive. The HMM's transition matrix encodes
 genuinely useful structure---the obligatory passage through the Transitional state---yet
 this temporal information buys remarkably little. For risk targeting, the memoryless GMM
-(Sharpe $0.52$) nearly matches the Markovian HMM ($0.57$), and even the parameter-free VIX
-rule ($0.50$) is close behind, so modelling persistence is a refinement rather than a
-driver. For return timing, the classifier is irrelevant in a different way---every tangency
-variant fails, the GMM tangency portfolio most severely, confirming that the binding
-constraint is the noisiness of regime-conditional expected returns, not the quality of the
-regime labels. The robust, defensible gains live entirely in the minimum-variance column,
+(Sharpe $0.54$) actually edges out the Markovian HMM ($0.50$), with the parameter-free VIX
+rule ($0.50$) level---so modelling persistence is, if anything, a slight handicap here
+rather than a driver. For return timing, the classifier matters in a different way---every
+tangency variant fails (Sharpe $0.30$--$0.45$, all below the benchmark's return),
+confirming that the binding constraint is the noisiness of regime-conditional expected
+returns, not the quality of the regime labels. The robust, defensible gains live entirely in the minimum-variance column,
 and are available from the crude VIX rule almost as readily as from the HMM or the GMM. For
 a practitioner, the policy implication is to prefer a simple, low-turnover, regime-aware
 minimum-variance overlay over any return-timing apparatus.
@@ -775,15 +775,15 @@ Conditioning a US sector-rotation strategy on inferred market regimes---whether 
 VIX rule, a Gaussian Hidden Markov Model, or an unsupervised Gaussian Mixture
 Model---delivers a large, robust, and economically meaningful reduction in portfolio risk:
 drawdowns fall from roughly $-60\%$ to about $-37\%$ and Sharpe ratios rise from $0.44$ to
-$0.50$--$0.57$, at low and cost-tolerant turnover. The same cannot be said for return
+$0.48$--$0.54$, at low and cost-tolerant turnover. The same cannot be said for return
 enhancement. Because every classifier feeds an identical regime-conditional portfolio
-construction, the return-timing (tangency) variants fail uniformly---several destroy
-value---and no strategy out-returns the S\&P~500 once data snooping is corrected for. Two
-conclusions follow. First, the value of regime conditioning resides in the choice of
-portfolio objective---minimum-variance risk targeting---rather than in return timing.
-Second, that value is strikingly insensitive to the sophistication of the regime model: the
-memoryless mixture, and even the fixed VIX rule, capture nearly as much of it as the
-Markov-switching model. In this dataset, the intelligence in ``intelligent'' regime
+construction, the return-timing (tangency) variants fail uniformly---none beats the
+benchmark's return---and no strategy out-returns the S\&P~500 once data snooping is
+corrected for. Two conclusions follow. First, the value of regime conditioning resides in
+the choice of portfolio objective---minimum-variance risk targeting---rather than in return
+timing. Second, that value is strikingly insensitive to the sophistication of the regime
+model: the memoryless mixture matches or slightly exceeds the Markov-switching model, and
+even the fixed VIX rule is level with it. In this dataset, the intelligence in ``intelligent'' regime
 allocation is best spent on managing risk.
 
 % =====================================================================

@@ -154,9 +154,9 @@ def fit_hmm_walkforward(
     """
     Walk-forward expanding-window HMM regime labeling.
 
-    At each refit point t, the HMM is trained on ALL data from the start up to t.
-    Predictions are then made for t+1 … t+refit_freq using Viterbi decoding.
-    This ensures strict out-of-sample regime labels.
+    At each refit point t, the HMM is trained on data up to t (indices 0..t-1) and used to
+    Viterbi-decode the *following* window [t : next_t]. The model never sees the days it
+    labels, so every regime label is strictly out-of-sample.
 
     Returns
     -------
@@ -173,29 +173,22 @@ def fit_hmm_walkforward(
     labels = pd.Series(index=dates, dtype=float)
 
     refit_points = list(range(min_train_days, T, refit_freq))
-    if T not in refit_points:
-        refit_points.append(T)
-
-    prev_t = min_train_days
     model = None
 
-    for t in refit_points:
-        X_train = X_all[:t]
-        model = HMMRegimeModel(**hmm_kwargs)
+    for i, t in enumerate(refit_points):
+        new_model = HMMRegimeModel(**hmm_kwargs)
         try:
-            model.fit(X_train)
+            new_model.fit(X_all[:t])       # trained on days 0..t-1 only
+            model = new_model
         except Exception as e:
             print(f"  [HMM] Fit failed at t={t}: {e}. Using previous model.")
-            if model.model_ is None:
-                continue
-
-        # Predict on the new window [prev_t : t]
-        X_window = X_all[prev_t:t]
-        if len(X_window) == 0:
+        if model is None or model.model_ is None:
             continue
-        preds = model.decode(X_window)
-        labels.iloc[prev_t:t] = preds
-        prev_t = t
+
+        # Viterbi-decode the FOLLOWING window [t : next_t] — strictly out-of-sample
+        next_t = refit_points[i + 1] if i + 1 < len(refit_points) else T
+        if t < next_t:
+            labels.iloc[t:next_t] = model.decode(X_all[t:next_t])
 
     labels = labels.dropna().astype(int)
     labels.name = "HMM_Regime"

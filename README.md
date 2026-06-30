@@ -8,7 +8,7 @@ transaction costs.
 > **Headline result.** All three regime classifiers feed an *identical* regime-conditional
 > portfolio construction, so performance gaps are attributable to the labelling method
 > alone. Regime conditioning delivers a large, robust reduction in risk (drawdowns fall
-> from ~−60% to ~−37%, Sharpe rises from 0.44 to 0.50–0.57 via minimum-variance). But the
+> from ~−60% to ~−37%, Sharpe rises from 0.44 to 0.48–0.54 via minimum-variance). But the
 > gain is purely risk targeting: the return-timing (tangency) variants fail uniformly, and
 > **no strategy out-returns the S&P 500 once data snooping is corrected for** (White's
 > Reality Check *p* = 0.98). **The value is in risk control, not abnormal returns — and it
@@ -56,17 +56,18 @@ Out-of-sample, net of 10 bps one-way costs (2006–2025):
 | Strategy   | Ann. Ret. % | Vol. % | Sharpe | Max DD % | Turnover | Break-even bps |
 |------------|------------:|-------:|-------:|---------:|---------:|---------------:|
 | SPY B&H    | 7.00 | 19.8 | 0.44 | −59.6 | 0%   | — |
-| **HMM-MVP**| **7.04** | 13.7 | **0.57** | −37.5 | 117% | **155.9** |
-| GMM-MVP    | 6.39 | 13.9 | 0.52 | −40.3 | 78%  | 143.6 |
+| **GMM-MVP**| **6.69** | 13.9 | **0.54** | −39.8 | 121% | **118.0** |
 | VIX-MVP    | 6.04 | 13.4 | 0.50 | −34.4 | 73%  | 125.3 |
-| HMM-TPF    | 4.46 | 18.1 | 0.33 | −42.6 | 508% | 0.0 |
-| GMM-TPF    | −0.05 | 20.2 | 0.10 | −57.5 | 386% | 0.0 |
+| HMM-MVP    | 6.19 | 14.0 | 0.50 | −38.7 | 122% | 77.5 |
+| HMM-TPF    | 5.16 | 15.7 | 0.40 | −55.1 | 464% | 0.0 |
+| GMM-TPF    | 3.86 | 18.1 | 0.30 | −44.5 | 433% | 0.0 |
 
 The minimum-variance (MVP) strategies are the robust, low-turnover, cost-tolerant winners —
-and they are nearly identical across classifiers (HMM 0.57, GMM 0.52, VIX 0.50), showing the
-gain comes from risk targeting, not the regime model. Every tangency (TPF) variant fails:
-with all methods sharing one portfolio construction, regime-conditional expected returns are
-too noisy to time, and no strategy beats the benchmark on raw return.
+and they are nearly identical across classifiers (GMM 0.54, HMM 0.50, VIX 0.50), so the gain
+comes from risk targeting, not the regime model (the memoryless GMM even edges out the HMM).
+Every tangency (TPF) variant fails: with all methods sharing one portfolio construction,
+regime-conditional expected returns are too noisy to time, and no strategy beats the
+benchmark on raw return.
 
 ---
 
