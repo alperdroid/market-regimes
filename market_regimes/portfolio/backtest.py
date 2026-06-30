@@ -12,8 +12,10 @@ Strategies:
   5. VIX-TPF         — VIX-gated regime-conditional TPF
   6. HMM-MVP         — HMM-gated regime-conditional MVP
   7. HMM-TPF         — HMM-gated regime-conditional TPF
-  8. ML-MVP          — GMM+RF-gated regime-conditional MVP
-  9. ML-TPF          — GMM+RF-gated regime-conditional TPF
+  8. GMM-MVP         — GMM-gated regime-conditional MVP
+  9. GMM-TPF         — GMM-gated regime-conditional TPF
+ 10. Ensemble-MVP    — majority-vote-gated regime-conditional MVP
+ 11. Ensemble-TPF    — majority-vote-gated regime-conditional TPF
 
 Rebalancing: monthly (~21 trading days).
 Transaction costs: applied at each rebalance proportional to weight turnover.
@@ -39,8 +41,8 @@ STRATEGY_NAMES = [
     "VIX-TPF",
     "HMM-MVP",
     "HMM-TPF",
-    "ML-MVP",
-    "ML-TPF",
+    "GMM-MVP",
+    "GMM-TPF",
     "Ensemble-MVP",
     "Ensemble-TPF",
 ]
@@ -76,9 +78,8 @@ def run_backtest(
     rf_daily:        pd.Series,        # (T,) daily risk-free rate
     vix_regimes:     pd.Series,        # (T,) VIX regime labels {0,1,2}
     hmm_regimes:     pd.Series,        # (T,) HMM regime labels  {0,1,2}
-    ml_regimes:      pd.Series,        # (T,) ML  regime labels  {0,1,2}
+    gmm_regimes:     pd.Series,        # (T,) GMM regime labels  {0,1,2}
     ensemble_regimes: pd.Series,       # (T,) ensemble regime labels {0,1,2}
-    ml_return_preds: pd.DataFrame,     # (T, N) ML-forecasted returns
     rolling_window:  int   = 252,
     rebalance_freq:  int   = 21,
     cost_bps:        float = 10.0,
@@ -86,11 +87,11 @@ def run_backtest(
     use_shrinkage:   bool  = True,
 ) -> pd.DataFrame:
     """
-    Run all 10 strategies on aligned data.
+    Run all 12 strategies on aligned data.
 
     Returns
     -------
-    pd.DataFrame, shape (T, 10)
+    pd.DataFrame, shape (T, 12)
         Daily gross portfolio returns for each strategy.
         Index = dates. Columns = STRATEGY_NAMES.
     """
@@ -100,7 +101,7 @@ def run_backtest(
         .intersection(spy_excess.index)
         .intersection(vix_regimes.index)
         .intersection(hmm_regimes.index)
-        .intersection(ml_regimes.index)
+        .intersection(gmm_regimes.index)
         .intersection(ensemble_regimes.index)
         .sort_values()
     )
@@ -110,9 +111,8 @@ def run_backtest(
     rf   = rf_daily.reindex(common_idx).ffill().bfill()
     vr   = vix_regimes.reindex(common_idx).ffill().bfill().astype(int)
     hr   = hmm_regimes.reindex(common_idx).ffill().bfill().astype(int)
-    mr   = ml_regimes.reindex(common_idx).ffill().bfill().astype(int)
+    gr   = gmm_regimes.reindex(common_idx).ffill().bfill().astype(int)
     ergr = ensemble_regimes.reindex(common_idx).ffill().bfill().astype(int)
-    mlp  = ml_return_preds.reindex(common_idx).ffill().bfill()
 
     T, N = er.shape
     dates = common_idx
@@ -127,8 +127,8 @@ def run_backtest(
     w_vix_tpf     = np.ones(N) / N
     w_hmm_mvp     = np.ones(N) / N
     w_hmm_tpf     = np.ones(N) / N
-    w_ml_mvp      = np.ones(N) / N
-    w_ml_tpf      = np.ones(N) / N
+    w_gmm_mvp     = np.ones(N) / N
+    w_gmm_tpf     = np.ones(N) / N
     w_ens_mvp     = np.ones(N) / N
     w_ens_tpf     = np.ones(N) / N
     w_ew          = np.ones(N) / N
@@ -147,7 +147,7 @@ def run_backtest(
     er_np_ = er.to_numpy()
     vr_np_ = vr.to_numpy()
     hr_np_ = hr.to_numpy()
-    mr_np_ = mr.to_numpy()
+    gr_np_ = gr.to_numpy()
     ergr_np_ = ergr.to_numpy()
 
     def _regime_moments(regime_arr: np.ndarray, t: int) -> dict:
@@ -167,7 +167,7 @@ def run_backtest(
         rf_t       = float(rf.iloc[t])
         regime_vix = int(vr_np_[t])
         regime_hmm = int(hr_np_[t])
-        regime_ml  = int(mr_np_[t])
+        regime_gmm = int(gr_np_[t])
         regime_ens = int(ergr_np_[t])
         today_ret  = er_np_[t]
         spy_ret    = float(spy.iloc[t])
@@ -197,7 +197,7 @@ def run_backtest(
             # --- Regime-conditional moments (VIX / HMM / ML) ---
             vix_mom = _regime_moments(vr_np_, t)
             hmm_mom = _regime_moments(hr_np_, t)
-            ml_mom  = _regime_moments(mr_np_, t)
+            gmm_mom = _regime_moments(gr_np_, t)
             ens_mom = _regime_moments(ergr_np_, t)
 
             # --- VIX-gated MVP ---
@@ -223,19 +223,17 @@ def run_backtest(
             day_turn[7] = _compute_turnover(w_hmm_tpf, w_new)
             w_hmm_tpf = w_new
 
-            # --- ML-gated MVP ---
-            mu_ml = mlp.iloc[t].values if not mlp.iloc[t].isna().all() else mu_unc
-            mu_ml_e = mu_ml - rf_t
-            sg_ml  = ml_mom[regime_ml]["sigma"]
-            w_new = compute_portfolio_weights(mu_ml_e, sg_ml, "mvp", rf_t,
-                                              regime_ml, crisis_cash)
-            day_turn[8] = _compute_turnover(w_ml_mvp, w_new)
-            w_ml_mvp = w_new
-            # --- ML-gated TPF ---
-            w_new = compute_portfolio_weights(mu_ml_e, sg_ml, "tpf", rf_t,
-                                              regime_ml, crisis_cash)
-            day_turn[9] = _compute_turnover(w_ml_tpf, w_new)
-            w_ml_tpf = w_new
+            # --- GMM-gated MVP (regime-conditional historical moments) ---
+            mu_g, sg_g = gmm_mom[regime_gmm]["mu"], gmm_mom[regime_gmm]["sigma"]
+            w_new = compute_portfolio_weights(mu_g, sg_g, "mvp", rf_t,
+                                              regime_gmm, crisis_cash)
+            day_turn[8] = _compute_turnover(w_gmm_mvp, w_new)
+            w_gmm_mvp = w_new
+            # --- GMM-gated TPF ---
+            w_new = compute_portfolio_weights(mu_g, sg_g, "tpf", rf_t,
+                                              regime_gmm, crisis_cash)
+            day_turn[9] = _compute_turnover(w_gmm_tpf, w_new)
+            w_gmm_tpf = w_new
 
             # --- Ensemble-gated MVP ---
             mu_e, sg_e = ens_mom[regime_ens]["mu"], ens_mom[regime_ens]["sigma"]
@@ -261,8 +259,8 @@ def run_backtest(
             float(w_vix_tpf @ today_ret),     # VIX-TPF
             float(w_hmm_mvp @ today_ret),     # HMM-MVP
             float(w_hmm_tpf @ today_ret),     # HMM-TPF
-            float(w_ml_mvp @ today_ret),      # ML-MVP
-            float(w_ml_tpf @ today_ret),      # ML-TPF
+            float(w_gmm_mvp @ today_ret),     # GMM-MVP
+            float(w_gmm_tpf @ today_ret),     # GMM-TPF
             float(w_ens_mvp @ today_ret),     # Ensemble-MVP
             float(w_ens_tpf @ today_ret),     # Ensemble-TPF
         ])
@@ -314,9 +312,8 @@ def weight_history(
     rf_daily:        pd.Series,
     vix_regimes:     pd.Series,
     hmm_regimes:     pd.Series,
-    ml_regimes:      pd.Series,
+    gmm_regimes:     pd.Series,
     ensemble_regimes: pd.Series,
-    ml_return_preds: pd.DataFrame,
     rolling_window:  int = 252,
     rebalance_freq:  int = 21,
     crisis_cash:     float = 0.15,
@@ -331,7 +328,7 @@ def weight_history(
         excess_returns.index
         .intersection(vix_regimes.index)
         .intersection(hmm_regimes.index)
-        .intersection(ml_regimes.index)
+        .intersection(gmm_regimes.index)
         .intersection(ensemble_regimes.index)
         .sort_values()
     )
@@ -339,22 +336,21 @@ def weight_history(
     rf  = rf_daily.reindex(common_idx).ffill().bfill()
     vr  = vix_regimes.reindex(common_idx).ffill().bfill().astype(int)
     hr  = hmm_regimes.reindex(common_idx).ffill().bfill().astype(int)
-    mr  = ml_regimes.reindex(common_idx).ffill().bfill().astype(int)
+    gr  = gmm_regimes.reindex(common_idx).ffill().bfill().astype(int)
     ergr = ensemble_regimes.reindex(common_idx).ffill().bfill().astype(int)
-    mlp = ml_return_preds.reindex(common_idx).ffill().bfill()
     T, N = er.shape
     cols = er.columns.tolist()
     dates = common_idx
 
     strategies = [
-        "VIX-MVP", "VIX-TPF", "HMM-MVP", "HMM-TPF", "ML-MVP", "ML-TPF",
+        "VIX-MVP", "VIX-TPF", "HMM-MVP", "HMM-TPF", "GMM-MVP", "GMM-TPF",
         "Ensemble-MVP", "Ensemble-TPF",
     ]
     wh = {s: pd.DataFrame(np.nan, index=dates, columns=cols) for s in strategies}
 
     w_vix_mvp = np.ones(N)/N; w_vix_tpf = np.ones(N)/N
     w_hmm_mvp = np.ones(N)/N; w_hmm_tpf = np.ones(N)/N
-    w_ml_mvp  = np.ones(N)/N; w_ml_tpf  = np.ones(N)/N
+    w_gmm_mvp = np.ones(N)/N; w_gmm_tpf = np.ones(N)/N
     w_ens_mvp = np.ones(N)/N; w_ens_tpf = np.ones(N)/N
 
     rebal_days = set(_rebalance_schedule(dates, rebalance_freq))
@@ -362,13 +358,13 @@ def weight_history(
     # Convert to numpy arrays upfront — avoids any pandas boolean index issues
     vr_np = vr.to_numpy()
     hr_np = hr.to_numpy()
-    mr_np = mr.to_numpy()
+    gr_np = gr.to_numpy()
     ergr_np = ergr.to_numpy()
     er_np = er.to_numpy()
 
     for t in range(rolling_window, T):
         rf_t = float(rf.iloc[t])
-        rv, rh, rm = int(vr_np[t]), int(hr_np[t]), int(mr_np[t])
+        rv, rh, rm = int(vr_np[t]), int(hr_np[t]), int(gr_np[t])
         re = int(ergr_np[t])
 
         if t in rebal_days:
@@ -383,17 +379,14 @@ def weight_history(
                     }
                 return moments
 
-            vm = _mom(vr_np); hm = _mom(hr_np); mm = _mom(mr_np); em = _mom(ergr_np)
-
-            mu_ml = (mlp.iloc[t].to_numpy() if not mlp.iloc[t].isna().all()
-                     else er_np[:t].mean(axis=0))
+            vm = _mom(vr_np); hm = _mom(hr_np); mm = _mom(gr_np); em = _mom(ergr_np)
 
             w_vix_mvp = compute_portfolio_weights(vm[rv]["mu"], vm[rv]["sigma"], "mvp", rf_t, rv, crisis_cash)
             w_vix_tpf = compute_portfolio_weights(vm[rv]["mu"], vm[rv]["sigma"], "tpf", rf_t, rv, crisis_cash)
             w_hmm_mvp = compute_portfolio_weights(hm[rh]["mu"], hm[rh]["sigma"], "mvp", rf_t, rh, crisis_cash)
             w_hmm_tpf = compute_portfolio_weights(hm[rh]["mu"], hm[rh]["sigma"], "tpf", rf_t, rh, crisis_cash)
-            w_ml_mvp  = compute_portfolio_weights(mu_ml - rf_t, mm[rm]["sigma"], "mvp", rf_t, rm, crisis_cash)
-            w_ml_tpf  = compute_portfolio_weights(mu_ml - rf_t, mm[rm]["sigma"], "tpf", rf_t, rm, crisis_cash)
+            w_gmm_mvp = compute_portfolio_weights(mm[rm]["mu"], mm[rm]["sigma"], "mvp", rf_t, rm, crisis_cash)
+            w_gmm_tpf = compute_portfolio_weights(mm[rm]["mu"], mm[rm]["sigma"], "tpf", rf_t, rm, crisis_cash)
             w_ens_mvp = compute_portfolio_weights(em[re]["mu"], em[re]["sigma"], "mvp", rf_t, re, crisis_cash)
             w_ens_tpf = compute_portfolio_weights(em[re]["mu"], em[re]["sigma"], "tpf", rf_t, re, crisis_cash)
 
@@ -402,8 +395,8 @@ def weight_history(
         wh["VIX-TPF"].loc[d] = w_vix_tpf
         wh["HMM-MVP"].loc[d] = w_hmm_mvp
         wh["HMM-TPF"].loc[d] = w_hmm_tpf
-        wh["ML-MVP"].loc[d]  = w_ml_mvp
-        wh["ML-TPF"].loc[d]  = w_ml_tpf
+        wh["GMM-MVP"].loc[d]  = w_gmm_mvp
+        wh["GMM-TPF"].loc[d]  = w_gmm_tpf
         wh["Ensemble-MVP"].loc[d] = w_ens_mvp
         wh["Ensemble-TPF"].loc[d] = w_ens_tpf
 

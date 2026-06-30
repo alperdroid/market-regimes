@@ -74,26 +74,15 @@ HMM_COVARIANCE_TYPE = "full"   # multivariate Gaussian per state
 HMM_RANDOM_STATE    = 42
 
 # ─────────────────────────────────────────────
-# GMM SETTINGS (Step 1 of ML Pipeline)
+# GMM SETTINGS (machine-learning regime classifier)
 # ─────────────────────────────────────────────
+# Unsupervised Gaussian Mixture clustering on [ΔVIX, sector log-returns].
+# The GMM produces regime labels only; portfolio moments are estimated from the
+# historical days in the prevailing regime, exactly as for the VIX and HMM methods.
 GMM_N_COMPONENTS   = 3
 GMM_N_INIT         = 20
 GMM_COVARIANCE_TYPE = "full"
 GMM_RANDOM_STATE   = 42
-
-# ─────────────────────────────────────────────
-# RANDOM FOREST SETTINGS (Step 2 of ML Pipeline)
-# ─────────────────────────────────────────────
-ML_FORECAST_MODEL = "extra_trees"  # random_forest, extra_trees, hist_gradient_boosting
-RF_N_ESTIMATORS  = 300
-RF_MAX_DEPTH     = 6
-RF_MIN_SAMPLES   = 15
-RF_MAX_FEATURES  = 0.7
-GB_LEARNING_RATE = 0.05
-GB_L2_REGULARIZATION = 0.01
-RF_RANDOM_STATE  = 42
-RF_N_JOBS        = 1
-RF_LAG_DAYS      = [1, 2, 3, 5]   # lagged return features
 
 # ─────────────────────────────────────────────
 # PORTFOLIO OPTIMISATION
@@ -150,8 +139,8 @@ STRATEGIES = [
     "VIX-TPF",
     "HMM-MVP",
     "HMM-TPF",
-    "ML-MVP",
-    "ML-TPF",
+    "GMM-MVP",
+    "GMM-TPF",
     "Ensemble-MVP",
     "Ensemble-TPF",
 ]

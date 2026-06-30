@@ -38,51 +38,6 @@ def compute_vix_change(vix: pd.Series) -> pd.Series:
     return dvix
 
 
-def build_feature_matrix(
-    vix: pd.Series,
-    ted: pd.Series,
-    term: pd.Series,
-    log_returns: pd.DataFrame,
-    lags: list[int] = None,
-) -> pd.DataFrame:
-    """
-    Assemble the macro-financial feature matrix for ML regime classifiers.
-
-    Core features (aligned daily):
-      - VIX level
-      - ΔVIX (daily change in VIX)
-      - TED Spread
-      - Term Spread (10Y-2Y)
-
-    Optional lagged return features (for RF regressor):
-      - Lagged ETF log-returns for each lag in `lags`
-
-    Returns a DataFrame indexed to the intersection of all series.
-    """
-    dvix = compute_vix_change(vix)
-
-    # Align all macro features
-    macro = pd.DataFrame({
-        "VIX":  vix,
-        "DVIX": dvix,
-        "TED":  ted,
-        "TERM": term,
-    }).dropna()
-
-    if lags:
-        lag_frames = []
-        for lag in lags:
-            shifted = log_returns.shift(lag)
-            shifted.columns = [f"{c}_lag{lag}" for c in shifted.columns]
-            lag_frames.append(shifted)
-        lagged = pd.concat(lag_frames, axis=1)
-        features = pd.concat([macro, lagged], axis=1).dropna()
-    else:
-        features = macro
-
-    return features
-
-
 def build_hmm_features(
     log_returns: pd.DataFrame,
     vix: pd.Series,
@@ -102,26 +57,10 @@ def build_gmm_features(
     vix: pd.Series,
 ) -> tuple[pd.DataFrame, pd.Index]:
     """
-    Feature matrix for GMM clustering (Step 1 of ML pipeline).
-    Uses ΔVIX + daily ETF log-returns.
+    Feature matrix for GMM regime clustering.
+    Uses ΔVIX + daily ETF log-returns (identical to the HMM feature set).
     """
     return build_hmm_features(log_returns, vix)
-
-
-def build_rf_features(
-    vix: pd.Series,
-    ted: pd.Series,
-    term: pd.Series,
-    log_returns: pd.DataFrame,
-    lags: list[int] = None,
-) -> pd.DataFrame:
-    """
-    Feature matrix for Random Forest regressors (Step 2 of ML pipeline).
-    Includes VIX, TED, Term, and lagged returns.
-    """
-    if lags is None:
-        lags = [1, 2, 3, 5]
-    return build_feature_matrix(vix, ted, term, log_returns, lags=lags)
 
 
 def get_common_index(*frames) -> pd.Index:

@@ -5,12 +5,14 @@ classifiers** and testing whether conditioning a US sector-rotation strategy on 
 inferred regime beats a passive S&P 500 benchmark — out-of-sample and net of
 transaction costs.
 
-> **Headline result.** Regime conditioning delivers a large, robust reduction in risk
-> (drawdowns fall from ~−60% to ~−37%, Sharpe rises modestly above the benchmark), but
-> the best machine-learning strategy's apparent *return* advantage does **not** survive
-> a data-snooping correction (White's Reality Check, *p* = 0.56) even though its
-> risk-adjusted Sharpe does (Deflated Sharpe Ratio = 0.98). **The value is in risk
-> control, not abnormal returns.**
+> **Headline result.** All three regime classifiers feed an *identical* regime-conditional
+> portfolio construction, so performance gaps are attributable to the labelling method
+> alone. Regime conditioning delivers a large, robust reduction in risk (drawdowns fall
+> from ~−60% to ~−37%, Sharpe rises from 0.44 to 0.50–0.57 via minimum-variance). But the
+> gain is purely risk targeting: the return-timing (tangency) variants fail uniformly, and
+> **no strategy out-returns the S&P 500 once data snooping is corrected for** (White's
+> Reality Check *p* = 0.98). **The value is in risk control, not abnormal returns — and it
+> is largely insensitive to the sophistication of the regime model.**
 
 The full write-up is in [`market_regimes/PAPER.md`](market_regimes/PAPER.md) (Markdown)
 and [`market_regimes/paper.tex`](market_regimes/paper.tex) (LaTeX, with figures/tables).
@@ -30,18 +32,20 @@ seven steps:
    - **VIX rule** — fixed thresholds (20 / 30).
    - **Gaussian HMM** — 3-state, full-covariance, Baum–Welch + Viterbi, with state
      sorting to fix label-switching.
-   - **ML pipeline** — Gaussian Mixture clustering → three regime-specialist Random
-     Forest return forecasters.
-   All learned models are fit **walk-forward** (expanding window, yearly refit) so
-   labels and forecasts are strictly out-of-sample.
+   - **GMM** — unsupervised Gaussian Mixture clustering (memoryless; no transition
+     matrix). Produces regime *labels only*.
+   All learned models are fit **walk-forward** (expanding window, yearly refit) so the
+   labels are strictly out-of-sample. Every classifier then feeds the *same* downstream
+   portfolio construction (moments from the historical days in the prevailing regime), so
+   differences are attributable to the regime map, not to an auxiliary return model.
 4. **Regime-conditional CAPM betas** — how sector market-sensitivity shifts across the
    volatility cycle.
-5. **Backtest** — 10 strategies (passive, 1/N, static/VIX/HMM/ML × MVP/TPF), monthly
-   rebalance, Ledoit–Wolf covariance shrinkage, crisis cash buffer, and measured
+5. **Backtest** — 12 strategies (passive, 1/N, and static/VIX/HMM/GMM/Ensemble × MVP/TPF),
+   monthly rebalance, Ledoit–Wolf covariance shrinkage, crisis cash buffer, and measured
    transaction costs.
 6. **Performance & significance** — Sharpe, Sortino, drawdown, Jensen's α, break-even
    cost, plus **Deflated Sharpe Ratio** and **White's Reality Check** for data snooping.
-7. **Figures** — 11 publication charts + diagnostic plots written to `results/`.
+7. **Figures** — 10 publication charts + diagnostic plots written to `results/`.
 
 ---
 
@@ -51,16 +55,18 @@ Out-of-sample, net of 10 bps one-way costs (2006–2025):
 
 | Strategy   | Ann. Ret. % | Vol. % | Sharpe | Max DD % | Turnover | Break-even bps |
 |------------|------------:|-------:|-------:|---------:|---------:|---------------:|
-| SPY B&H    | 7.01 | 19.8 | 0.44 | −59.6 | 0%   | — |
-| ML-MVP     | 6.21 | 14.2 | 0.50 | −38.9 | 77%  | **110.9** |
-| HMM-MVP    | 5.80 | 14.1 | 0.47 | −41.3 | 108% | 49.1 |
-| VIX-MVP    | 5.65 | 13.8 | 0.47 | −36.6 | 59%  | 72.8 |
-| **ML-TPF** | **9.48** | 17.3 | **0.61** | −38.0 | 621% | 56.9 |
-| HMM-TPF    | 2.95 | 19.7 | 0.25 | −54.9 | 496% | 0.0 |
+| SPY B&H    | 7.00 | 19.8 | 0.44 | −59.6 | 0%   | — |
+| **HMM-MVP**| **7.04** | 13.7 | **0.57** | −37.5 | 117% | **155.9** |
+| GMM-MVP    | 6.39 | 13.9 | 0.52 | −40.3 | 78%  | 143.6 |
+| VIX-MVP    | 6.04 | 13.4 | 0.50 | −34.4 | 73%  | 125.3 |
+| HMM-TPF    | 4.46 | 18.1 | 0.33 | −42.6 | 508% | 0.0 |
+| GMM-TPF    | −0.05 | 20.2 | 0.10 | −57.5 | 386% | 0.0 |
 
-The minimum-variance (MVP) strategies are the robust, low-turnover, cost-tolerant
-winners. The high-turnover tangency (TPF) portfolios are flattered by frictionless
-accounting; ML-TPF's edge is risk reduction, not return.
+The minimum-variance (MVP) strategies are the robust, low-turnover, cost-tolerant winners —
+and they are nearly identical across classifiers (HMM 0.57, GMM 0.52, VIX 0.50), showing the
+gain comes from risk targeting, not the regime model. Every tangency (TPF) variant fails:
+with all methods sharing one portfolio construction, regime-conditional expected returns are
+too noisy to time, and no strategy beats the benchmark on raw return.
 
 ---
 
@@ -71,7 +77,7 @@ market_regimes/
 ├── main.py                 # end-to-end pipeline
 ├── config.py               # all parameters, tickers, thresholds
 ├── data/                   # loaders + feature engineering
-├── regimes/                # vix_classifier, hmm_model, ml_pipeline
+├── regimes/                # vix_classifier, hmm_model, gmm_pipeline, ensemble
 ├── portfolio/              # optimizer (MVP/TPF), ledoit_wolf, backtest
 ├── capm/                   # regime-conditional beta analysis
 ├── performance/            # metrics + significance tests
@@ -115,14 +121,14 @@ Only standard LaTeX packages are used; it also compiles as-is on Overleaf (uploa
 
 ## Method notes & references
 
-- **Walk-forward, out-of-sample** estimation throughout — no look-ahead in labels,
-  forecasts, or moment estimation.
+- **Walk-forward, out-of-sample** estimation throughout — no look-ahead in regime labels
+  or moment estimation.
 - **Data-snooping corrections**: Deflated Sharpe Ratio (Bailey & López de Prado, 2014)
   and White's Reality Check (White, 2000) via the stationary bootstrap (Politis &
   Romano, 1994). See [`results/significance_methods.md`](market_regimes/results/significance_methods.md).
 - Regime-switching: Hamilton (1989); Ang & Bekaert (2002); Guidolin & Timmermann
   (2007). VIX thresholds: Whaley (2009); Bloom (2009). Covariance shrinkage: Ledoit &
   Wolf (2004). Estimation risk / 1/N: DeMiguel, Garlappi & Uppal (2009); minimum
-  variance: Clarke, de Silva & Thorley (2006). Random Forests: Breiman (2001).
+  variance: Clarke, de Silva & Thorley (2006). Gaussian mixtures: McLachlan & Peel (2000).
 
 Full reference list in the paper.

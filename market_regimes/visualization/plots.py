@@ -56,8 +56,8 @@ STRATEGY_COLORS = {
     "VIX-TPF":    "#27AE60",
     "HMM-MVP":    "#F39C12",
     "HMM-TPF":    "#E67E22",
-    "ML-MVP":     "#E74C3C",
-    "ML-TPF":     "#C0392B",
+    "GMM-MVP":     "#E74C3C",
+    "GMM-TPF":     "#C0392B",
     "Ensemble-MVP": "#A855F7",
     "Ensemble-TPF": "#7C3AED",
 }
@@ -208,7 +208,7 @@ def plot_regime_comparison(
     data = {
         "VIX Rules": vix_regimes.loc[common].values,
         "HMM":       hmm_regimes.loc[common].values,
-        "GMM (ML)":  ml_regimes.loc[common].values,
+        "GMM":       ml_regimes.loc[common].values,
     }
     if ensemble_regimes is not None:
         data["Ensemble"] = ensemble_regimes.loc[common].values
@@ -386,7 +386,7 @@ def plot_portfolio_weights(
     strategies_to_plot: list = None,
 ):
     if strategies_to_plot is None:
-        strategies_to_plot = ["HMM-MVP", "ML-MVP", "Ensemble-MVP"]
+        strategies_to_plot = ["HMM-MVP", "GMM-MVP", "Ensemble-MVP"]
 
     avail = [s for s in strategies_to_plot if s in weight_history]
     if not avail:
@@ -437,7 +437,7 @@ def plot_cumulative_wealth(
 
     for col in wealth_df.columns:
         color = STRATEGY_COLORS.get(col, PALETTE["accent"])
-        lw = 2.0 if col in ("ML-TPF", "HMM-TPF", "SPY B&H") else 1.2
+        lw = 2.0 if col in ("GMM-TPF", "HMM-TPF", "SPY B&H") else 1.2
         ls = "--" if "B&H" in col or "1/N" in col else "-"
         ax.plot(wealth_df.index, wealth_df[col], color=color, lw=lw,
                 ls=ls, label=col, zorder=5)
@@ -505,7 +505,7 @@ def plot_drawdown_profiles(
     top_n: int = 6,
 ):
     strategies = [
-        "SPY B&H", "EW 1/N", "HMM-MVP", "HMM-TPF", "ML-MVP", "ML-TPF",
+        "SPY B&H", "EW 1/N", "HMM-MVP", "HMM-TPF", "GMM-MVP", "GMM-TPF",
         "Ensemble-MVP", "Ensemble-TPF",
     ]
     available  = [s for s in strategies if s in wealth_df.columns]
@@ -517,7 +517,7 @@ def plot_drawdown_profiles(
         w   = wealth_df[strat].dropna()
         dd  = (w - w.cummax()) / w.cummax()
         color = STRATEGY_COLORS.get(strat, PALETTE["accent"])
-        lw    = 2.0 if strat in ("ML-TPF", "SPY B&H") else 1.2
+        lw    = 2.0 if strat in ("GMM-TPF", "SPY B&H") else 1.2
         ax.fill_between(dd.index, dd.values, 0, color=color, alpha=0.25)
         ax.plot(dd.index, dd.values, color=color, lw=lw, label=strat)
 
@@ -545,7 +545,7 @@ def plot_breakeven_costs(
     Plot Sharpe ratio vs. one-way transaction cost for active strategies.
     """
     active = [
-        "Static MVP", "VIX-MVP", "VIX-TPF", "HMM-MVP", "HMM-TPF", "ML-MVP", "ML-TPF",
+        "Static MVP", "VIX-MVP", "VIX-TPF", "HMM-MVP", "HMM-TPF", "GMM-MVP", "GMM-TPF",
         "Ensemble-MVP", "Ensemble-TPF",
     ]
     active = [s for s in active if s in port_returns.columns]
@@ -637,12 +637,11 @@ def generate_all_figures(
     cost_range_bps:  np.ndarray = None,
 ):
     """
-    Call all 11 plot functions from a single data dictionary.
+    Call all plot functions from a single data dictionary.
     Expected keys in `data`:
-      vix, vix_regimes, hmm_regimes, ml_regimes,
+      vix, vix_regimes, hmm_regimes, gmm_regimes, ensemble_regimes,
       hmm_model, log_returns, excess_returns, spy_excess,
-      wealth, port_returns, rf_daily, beta_summary,
-      weight_history, ml_pipeline, rf_feature_names
+      wealth, port_returns, rf_daily, beta_summary, weight_history
     """
     if cost_range_bps is None:
         cost_range_bps = np.arange(0, 51, 1)
@@ -656,7 +655,7 @@ def generate_all_figures(
 
     # 2
     plot_regime_comparison(
-        data["vix_regimes"], data["hmm_regimes"], data["ml_regimes"], out_dir,
+        data["vix_regimes"], data["hmm_regimes"], data["gmm_regimes"], out_dir,
         ensemble_regimes=data.get("ensemble_regimes"),
     )
 
@@ -698,14 +697,5 @@ def generate_all_figures(
         breakeven_returns, spy_sr, cost_range_bps, out_dir,
         annual_turnover_dict=data.get("turnover_dict"),
     )
-
-    # 11
-    if data.get("ml_pipeline") and data["ml_pipeline"].ensemble_:
-        feat_imp = data["ml_pipeline"].ensemble_.feature_importances()
-        plot_feature_importances(
-            feat_imp,
-            data.get("rf_feature_names", [f"f{i}" for i in range(50)]),
-            out_dir,
-        )
 
     print(f"[Visualization] All figures saved to: {out_dir}/")
