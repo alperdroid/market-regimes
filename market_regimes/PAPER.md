@@ -142,9 +142,13 @@ Crisis (VIX ≥ 30), following Whaley (2009) and Bloom (2009).
 
 **(b) Hidden Markov Model.** A three-state Gaussian HMM with full state-specific covariances
 and a first-order Markov transition matrix A, x_t | s_t=k ~ N(μ_k, Σ_k). Parameters are
-estimated by Baum–Welch EM (best of twenty random restarts by log-likelihood); the most
-probable state path is recovered by Viterbi decoding. States are sorted by their conditional
-mean ΔVIX (fixing 0 = Calm, 2 = Crisis) to resolve label-switching.
+estimated by Baum–Welch EM (best of twenty random restarts by log-likelihood). Out-of-sample
+labels use the *filtered* state probability P(s_t | x_1…x_t) from the forward algorithm —
+conditioning only on past and present, unlike the Viterbi path or smoothed states, which use
+the whole sequence and would leak future information into a real-time label — putting the HMM
+on the same strictly causal footing as the memoryless GMM (Hamilton 1989; Ang & Timmermann
+2012). States are sorted by their conditional mean ΔVIX (fixing 0 = Calm, 2 = Crisis) to
+resolve label-switching.
 
 **(c) Gaussian Mixture Model.** The machine-learning classifier is a three-component Gaussian
 Mixture fitted on the regime features, assigning each day a hard cluster label sorted by ΔVIX
@@ -198,7 +202,7 @@ block 10 days, 2,000 resamples).
 
 The VIX rule assigns 68.6% of days to Calm (mean VIX 14.8), 23.3% to Transitional (23.9),
 8.1% to Crisis (40.7); the equal-weight sector return averages +27% annualised in Calm, −9% in
-Transitional and −90% in Crisis. The HMM recovers a persistent partition (Calm 2,590 days,
+Transitional and −90% in Crisis. The HMM recovers a persistent partition (Calm 2,668 days,
 Transitional 2,220, Crisis 507) whose sorted transition matrix never jumps directly between
 Calm and Crisis — the "ramp-up / ramp-down" dynamic a memoryless classifier cannot capture.
 The GMM labels (Calm 3,078, Transitional 1,513, Crisis 438) lack this temporal structure.
@@ -222,8 +226,8 @@ Technology 0.73 → 0.91). This is the mechanism a defensive rotation must explo
 | Static TPF | 5.97 | 19.85 | 0.39 | 0.36 | −48.8 | 0.93 | 0.74 | 325 | 0.0 |
 | VIX-MVP    | 6.04 | 13.44 | 0.50 | 0.47 | −34.4 | 1.88 | 0.28 | 73 | 125.3 |
 | VIX-TPF    | 6.05 | 16.03 | 0.45 | 0.41 | −32.2 | 1.45 | 0.50 | 328 | 12.8 |
-| HMM-MVP    | 6.19 | 13.95 | 0.50 | 0.47 | −38.7 | 2.03 | 0.29 | 122 | 77.5 |
-| HMM-TPF    | 5.16 | 15.73 | 0.40 | 0.37 | −55.1 | 0.48 | 0.81 | 464 | 0.0 |
+| HMM-MVP    | 6.63 | 14.05 | 0.53 | 0.49 | −37.3 | 2.41 | 0.21 | 122 | 109.1 |
+| HMM-TPF    | 4.96 | 17.24 | 0.37 | 0.34 | −58.1 | 0.24 | 0.92 | 478 | 0.0 |
 | **GMM-MVP**| **6.69** | 13.91 | **0.54** | 0.50 | −39.8 | **2.40** | 0.19 | 121 | **118.0** |
 | GMM-TPF    | 3.86 | 18.14 | 0.30 | 0.28 | −44.5 | −0.93 | 0.71 | 433 | 0.0 |
 
@@ -238,15 +242,16 @@ Sharpe ratios of only 0.30–0.45 (the GMM tangency portfolio is weakest, at 0.3
 expected returns from the regime-conditional historical mean is simply too noisy to time,
 whichever classifier supplies the regime. *Fourth*, the minimum-variance strategies are
 uniformly strong and remarkably similar across classifiers: GMM-MVP leads (Sharpe 0.54, alpha
-2.40%), with HMM-MVP and VIX-MVP both at 0.50. That the *memoryless* GMM edges out the
-Markovian HMM, and even the parameter-free VIX rule matches it, indicates the gains come from
+2.40%), with HMM-MVP essentially level (0.53) and VIX-MVP just behind (0.50). That the
+*memoryless* GMM matches the Markovian HMM, and even the parameter-free VIX rule is within
+striking distance, indicates the gains come from
 *risk targeting under any reasonable regime map*, not from the sophistication of the regime
 model.
 
 ### 5.4 Transaction costs and break-even
 
 The minimum-variance strategies trade modestly (73–122% per year), but the tangency portfolios
-churn aggressively (325–464% annually). This compounds their weak gross performance: every TPF
+churn aggressively (325–478% annually). This compounds their weak gross performance: every TPF
 strategy fails to match the S&P 500 Sharpe *even at zero cost* (break-even ≤ 13 bps), whereas
 the minimum-variance strategies are highly cost-tolerant — VIX-MVP absorbs 125 bps of one-way
 cost, GMM-MVP 118 bps, Static MVP 86 bps before their Sharpe falls to the benchmark's. The
@@ -256,8 +261,8 @@ cost-robust strategies are precisely the low-turnover minimum-variance ones.
 
 No strategy's CAPM alpha is significant at 5% on a single-equation basis; the best, GMM-MVP,
 comes closest at p = 0.19. The data-snooping corrections, computed over the strategies
-searched, paint a coherent picture. The Deflated Sharpe Ratio of GMM-MVP is **0.97** (Sharpe
-0.54 versus a snooping-adjusted null of 0.11) — its risk-adjusted edge is marginally significant
+searched, paint a coherent picture. The Deflated Sharpe Ratio of GMM-MVP is **0.96** (Sharpe
+0.54 versus a snooping-adjusted null of 0.12) — its risk-adjusted edge is marginally significant
 even after accounting for the breadth of the search. White's Reality Check, however, is
 unambiguous: with a bootstrap **p = 0.98**, we cannot reject the null that the best strategy
 fails to out-return the S&P 500, reflecting that no strategy beats the benchmark on raw return
@@ -279,8 +284,8 @@ simple benchmarks with return forecasts (DeMiguel, Garlappi and Uppal, 2009).
 
 The comparison across classifiers is instructive. The HMM's transition matrix encodes genuinely
 useful structure, yet it buys remarkably little: for risk targeting the memoryless GMM (0.54)
-actually edges out the Markovian HMM (0.50), with the parameter-free VIX rule (0.50) level —
-so persistence is, if anything, a slight handicap rather than a driver. For return timing the
+is statistically level with the Markovian HMM (0.53), and the parameter-free VIX rule (0.50)
+is barely behind — so persistence adds essentially nothing here. For return timing the
 classifier matters differently — every tangency variant fails (Sharpe 0.30–0.45),
 confirming that the binding constraint is the noisiness of regime-conditional expected returns,
 not the quality of the labels. For a practitioner, the policy implication is to prefer a simple,

@@ -5,8 +5,12 @@ regimes/hmm_model.py
 
 Uses hmmlearn.hmm.GaussianHMM with full covariance matrices.
 - Training: Baum-Welch EM algorithm with multiple random restarts.
-- Decoding: Viterbi algorithm for most probable state sequence.
 - Model selection: Best log-likelihood across random starts.
+- Out-of-sample labelling: causal *filtered* state probabilities
+  P(s_t | x_1…x_t) from the forward algorithm — uses only past and present
+  observations (never future), the literature-standard choice for real-time /
+  out-of-sample regime allocation. Viterbi decoding (a smoother) is retained for
+  descriptive in-sample analysis only.
 - State relabeling: states are aligned so 0=Calm, 1=Transitional, 2=Crisis
   based on ascending state-conditional VIX mean.
 """
@@ -15,6 +19,8 @@ import warnings
 import numpy as np
 import pandas as pd
 from hmmlearn.hmm import GaussianHMM
+from scipy.special import logsumexp
+from scipy.stats import multivariate_normal
 
 
 def _sort_states_by_vix_mean(model: GaussianHMM, dvix_col_idx: int = 0) -> np.ndarray:
@@ -108,13 +114,57 @@ class HMMRegimeModel:
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
         """
-        Posterior state probabilities (forward-backward smoothing).
+        Smoothed posterior state probabilities (forward-backward; uses the whole
+        sequence, including future observations). For in-sample analysis only.
         Returns shape (T, n_states), columns sorted by volatility.
         """
         if self.model_ is None:
             raise RuntimeError("Model not fitted yet.")
         posteriors = self.model_.predict_proba(X)
         return posteriors[:, self._order]
+
+    def _frame_loglik(self, X: np.ndarray) -> np.ndarray:
+        """Per-frame, per-state Gaussian emission log-likelihoods, shape (T, n_states)."""
+        m = self.model_
+        fll = np.empty((X.shape[0], self.n_states))
+        for k in range(self.n_states):
+            fll[:, k] = multivariate_normal.logpdf(
+                X, mean=m.means_[k], cov=m.covars_[k], allow_singular=True
+            )
+        return fll
+
+    def filtered_state_proba(self, X: np.ndarray) -> np.ndarray:
+        """
+        Filtered (causal) state posteriors P(s_t = k | x_1 … x_t) via the forward
+        algorithm in log space. Uses only past and present observations — never the
+        future — so it is the appropriate estimate for real-time / out-of-sample use.
+        Returns shape (T, n_states), columns sorted by volatility (0=Calm, 2=Crisis).
+        """
+        if self.model_ is None:
+            raise RuntimeError("Model not fitted yet.")
+        m = self.model_
+        framelogprob = self._frame_loglik(X)             # (T, K)
+        log_pi = np.log(m.startprob_ + 1e-300)
+        log_A  = np.log(m.transmat_ + 1e-300)            # (K, K)
+        T = X.shape[0]
+        log_alpha = np.empty((T, self.n_states))
+        log_alpha[0] = log_pi + framelogprob[0]
+        for t in range(1, T):
+            # log_alpha[t,k] = log b_k(x_t) + logsumexp_j( log_alpha[t-1,j] + log A[j,k] )
+            log_alpha[t] = framelogprob[t] + logsumexp(
+                log_alpha[t - 1][:, None] + log_A, axis=0
+            )
+        # normalise each row → filtered distribution over states
+        filt = np.exp(log_alpha - logsumexp(log_alpha, axis=1, keepdims=True))
+        return filt[:, self._order]
+
+    def predict_filtered(self, X: np.ndarray) -> np.ndarray:
+        """
+        Hard filtered regime labels (argmax of the causal filtered posterior), sorted
+        so 0=Calm, 1=Transitional, 2=Crisis. Strictly out-of-sample: the label for day
+        t uses observations only up to t.
+        """
+        return np.argmax(self.filtered_state_proba(X), axis=1)
 
     @property
     def transition_matrix(self) -> np.ndarray:
@@ -155,8 +205,9 @@ def fit_hmm_walkforward(
     Walk-forward expanding-window HMM regime labeling.
 
     At each refit point t, the HMM is trained on data up to t (indices 0..t-1) and used to
-    Viterbi-decode the *following* window [t : next_t]. The model never sees the days it
-    labels, so every regime label is strictly out-of-sample.
+    produce *filtered* (forward-algorithm) regime labels for the *following* window
+    [t : next_t]. The model never sees the days it labels, and the forward filter never
+    looks ahead, so every regime label is strictly out-of-sample and causal.
 
     Returns
     -------
@@ -185,10 +236,14 @@ def fit_hmm_walkforward(
         if model is None or model.model_ is None:
             continue
 
-        # Viterbi-decode the FOLLOWING window [t : next_t] — strictly out-of-sample
+        # Filtered (forward-algorithm) labels for the FOLLOWING window [t : next_t].
+        # We filter the full history [0 : next_t] so the recursion carries forward without
+        # a per-window restart; it stays strictly causal because the forward pass never
+        # looks ahead and the model was trained only on [0 : t].
         next_t = refit_points[i + 1] if i + 1 < len(refit_points) else T
         if t < next_t:
-            labels.iloc[t:next_t] = model.decode(X_all[t:next_t])
+            filt = model.predict_filtered(X_all[:next_t])
+            labels.iloc[t:next_t] = filt[t:next_t]
 
     labels = labels.dropna().astype(int)
     labels.name = "HMM_Regime"

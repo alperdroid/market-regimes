@@ -327,11 +327,17 @@ the latent state $s_t\in\{0,1,2\}$, multivariate normal,
 \end{equation}
 with full state-specific covariances $\Sigma_k$ and a first-order Markov transition
 matrix $A$. Parameters are estimated by Baum--Welch EM; because EM converges only to
-local optima, we take the best of twenty random restarts by log-likelihood, and recover
-the most probable state path by Viterbi decoding. HMM state indices are not identified by
-the likelihood (the ``label-switching'' problem), so we sort the states by their
-state-conditional mean $\dvix$, fixing state $0$ as Calm and state $2$ as Crisis and
-permuting $A$, $\mu_k$ and $\Sigma_k$ accordingly.
+local optima, we take the best of twenty random restarts by log-likelihood. For the
+out-of-sample regime label at day $t$ we use the \emph{filtered} state probability
+$\Pr(s_t\mid x_1,\dots,x_t)$ from the forward algorithm and take its mode. The filtered
+estimate conditions only on past and present observations, in contrast to the Viterbi path
+or the smoothed posterior $\Pr(s_t\mid x_1,\dots,x_T)$, both of which use the entire
+sequence and would leak future information into a real-time label; the filtered probability
+is the standard choice for out-of-sample regime allocation \citep{hamilton1989,
+angtimmermann2012} and puts the HMM on the same strictly causal footing as the memoryless
+GMM. HMM state indices are not identified by the likelihood (the ``label-switching''
+problem), so we sort the states by their state-conditional mean $\dvix$, fixing state $0$
+as Calm and state $2$ as Crisis and permuting $A$, $\mu_k$ and $\Sigma_k$ accordingly.
 
 \paragraph{(c) Gaussian Mixture Model.}
 The machine-learning classifier is a three-component Gaussian Mixture fitted on the regime
@@ -464,8 +470,8 @@ standard deviation of the equal-weight sector return within each regime. Source:
 calculations based on data from Yahoo!\ Finance and FRED.}
 \end{table}
 
-The HMM recovers a more balanced and highly persistent partition (Calm 2{,}590 days,
-Transitional 1{,}838, Crisis 601). Its sorted transition matrix (Table~\ref{tab:trans})
+The HMM recovers a more balanced and highly persistent partition (Calm 2{,}668 days,
+Transitional 1{,}766, Crisis 595). Its sorted transition matrix (Table~\ref{tab:trans})
 shows three features: states are persistent (diagonal $0.81$--$0.90$); the economy never
 jumps \emph{directly} between Calm and Crisis but must pass through Transitional in both
 directions---the ``ramp-up / ramp-down'' dynamic a memoryless classifier cannot
@@ -600,8 +606,8 @@ Static MVP  & 6.11 & 14.53 & 0.48 & 0.45 & $-38.2$ & 1.52 & 0.38  & 76  & 86.1  
 Static TPF  & 5.97 & 19.85 & 0.39 & 0.36 & $-48.8$ & 0.93 & 0.74  & 325 & 0.0   \\
 VIX-MVP     & 6.04 & 13.44 & 0.50 & 0.47 & $-34.4$ & 1.88 & 0.28  & 73  & 125.3 \\
 VIX-TPF     & 6.05 & 16.03 & 0.45 & 0.41 & $-32.2$ & 1.45 & 0.50  & 328 & 12.8  \\
-HMM-MVP     & 6.19 & 13.95 & 0.50 & 0.47 & $-38.7$ & 2.03 & 0.29 & 122 & 77.5 \\
-HMM-TPF     & 5.16 & 15.73 & 0.40 & 0.37 & $-55.1$ & 0.48 & 0.81 & 464 & 0.0 \\
+HMM-MVP     & 6.63 & 14.05 & 0.53 & 0.49 & $-37.3$ & 2.41 & 0.21 & 122 & 109.1 \\
+HMM-TPF     & 4.96 & 17.24 & 0.37 & 0.34 & $-58.1$ & 0.24 & 0.92 & 478 & 0.0 \\
 \textbf{GMM-MVP} & \textbf{6.69} & 13.91 & \textbf{0.54} & 0.50 & $-39.8$ & \textbf{2.40} & 0.19 & 121 & \textbf{118.0} \\
 GMM-TPF     & 3.86 & 18.14 & 0.30 & 0.28 & $-44.5$ & $-0.93$ & 0.71 & 433 & 0.0 \\
 \bottomrule
@@ -629,10 +635,11 @@ $0.30$--$0.45$ (the GMM tangency portfolio is weakest, at $0.30$). Estimating ex
 returns from the regime-conditional historical mean is simply too noisy to time, whichever
 classifier supplies the regime. \emph{Fourth}, the minimum-variance strategies, which never
 touch the fragile expected-return estimate, are uniformly strong and remarkably similar
-across classifiers: GMM-MVP leads (Sharpe $0.54$, annual alpha $2.40\%$), with HMM-MVP and
-VIX-MVP both at $0.50$. That the \emph{memoryless} GMM edges out the Markovian HMM, and that
-even the parameter-free VIX rule matches it, indicates that the gains come from \emph{risk
-targeting under any reasonable regime map}, not from the sophistication of the regime model.
+across classifiers: GMM-MVP leads (Sharpe $0.54$, annual alpha $2.40\%$), with HMM-MVP
+essentially level ($0.53$) and VIX-MVP just behind ($0.50$). That the \emph{memoryless} GMM
+matches the Markovian HMM, and that even the parameter-free VIX rule is within striking
+distance, indicates that the gains come from \emph{risk targeting under any reasonable
+regime map}, not from the sophistication of the regime model.
 Figure~\ref{fig:weights} traces how the regime-conditional weights rotate toward defensive
 sectors and cash as the system enters Crisis.
 
@@ -668,7 +675,7 @@ appears during Crisis regimes. Source: own illustration.}
 Measuring turnover directly is essential, because the strategies differ by an order of
 magnitude (Table~\ref{tab:perf}). The minimum-variance strategies trade modestly
 ($73$--$122\%$ per year), but the tangency portfolios churn aggressively---between $325\%$
-and $464\%$ of capital annually. This asymmetry compounds the tangency portfolios' weak
+and $478\%$ of capital annually. This asymmetry compounds the tangency portfolios' weak
 gross performance: the break-even analysis (Figure~\ref{fig:breakeven}) shows that every
 TPF strategy fails to match the S\&P~500 Sharpe \emph{even at zero cost} (break-even
 $\le 13$~bps), whereas the minimum-variance strategies are highly cost-tolerant---VIX-MVP
@@ -701,7 +708,7 @@ requires a multiple-testing correction (Table~\ref{tab:sig}).
 \toprule
 Test & Statistic & Verdict \\
 \midrule
-Deflated Sharpe Ratio & $0.97$ (Sharpe $0.54$ vs.\ null $0.11$) & Marginally significant at 95\% \\
+Deflated Sharpe Ratio & $0.96$ (Sharpe $0.54$ vs.\ null $0.12$) & Marginally significant at 95\% \\
 White's Reality Check & $p=0.98$ (2{,}000 bootstraps) & Cannot reject $H_0$ \\
 \bottomrule
 \end{tabular}
@@ -714,8 +721,8 @@ Source: own calculations.}
 \end{table}
 
 The two corrections paint a coherent picture. The Deflated Sharpe Ratio of the
-highest-Sharpe strategy, GMM-MVP, is $0.97$: its annualised Sharpe of $0.54$ clears the
-snooping-adjusted null threshold of $0.11$, so its \emph{risk-adjusted} performance is
+highest-Sharpe strategy, GMM-MVP, is $0.96$: its annualised Sharpe of $0.54$ clears the
+snooping-adjusted null threshold of $0.12$, so its \emph{risk-adjusted} performance is
 marginally significant even after accounting for the breadth of the search. White's Reality
 Check, however, is unambiguous: with a bootstrap $p$-value of $0.98$, we \emph{cannot}
 reject the null that the best strategy fails to out-\emph{return} the S\&P~500, reflecting
@@ -741,9 +748,9 @@ benchmarks with return forecasts \citep{demiguel2009}.
 The comparison across classifiers is instructive. The HMM's transition matrix encodes
 genuinely useful structure---the obligatory passage through the Transitional state---yet
 this temporal information buys remarkably little. For risk targeting, the memoryless GMM
-(Sharpe $0.54$) actually edges out the Markovian HMM ($0.50$), with the parameter-free VIX
-rule ($0.50$) level---so modelling persistence is, if anything, a slight handicap here
-rather than a driver. For return timing, the classifier matters in a different way---every
+(Sharpe $0.54$) is statistically level with the Markovian HMM ($0.53$), and the
+parameter-free VIX rule ($0.50$) is barely behind---so modelling persistence adds
+essentially nothing here. For return timing, the classifier matters in a different way---every
 tangency variant fails (Sharpe $0.30$--$0.45$, all below the benchmark's return),
 confirming that the binding constraint is the noisiness of regime-conditional expected
 returns, not the quality of the regime labels. The robust, defensible gains live entirely in the minimum-variance column,
@@ -792,6 +799,7 @@ allocation is best spent on managing risk.
 \begin{thebibliography}{99}
 % =====================================================================
 \bibitem[Ang and Bekaert(2002)]{ang2002} Ang, A., and Bekaert, G. (2002). International Asset Allocation with Regime Shifts. \textit{Review of Financial Studies}, 15(4), 1137--1187.
+\bibitem[Ang and Timmermann(2012)]{angtimmermann2012} Ang, A., and Timmermann, A. (2012). Regime Changes and Financial Markets. \textit{Annual Review of Financial Economics}, 4, 313--337.
 \bibitem[Bailey and L\'opez de Prado(2014)]{bailey2014} Bailey, D.~H., and L\'opez de Prado, M. (2014). The Deflated Sharpe Ratio: Correcting for Selection Bias, Backtest Overfitting, and Non-Normality. \textit{Journal of Portfolio Management}, 40(5), 94--107.
 \bibitem[Baum et al.(1970)]{baum1970} Baum, L.~E., Petrie, T., Soules, G., and Weiss, N. (1970). A Maximization Technique Occurring in the Statistical Analysis of Probabilistic Functions of Markov Chains. \textit{Annals of Mathematical Statistics}, 41(1), 164--171.
 \bibitem[Bloom(2009)]{bloom2009} Bloom, N. (2009). The Impact of Uncertainty Shocks. \textit{Econometrica}, 77(3), 623--685.

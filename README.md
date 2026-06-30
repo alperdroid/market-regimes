@@ -57,14 +57,14 @@ Out-of-sample, net of 10 bps one-way costs (2006–2025):
 |------------|------------:|-------:|-------:|---------:|---------:|---------------:|
 | SPY B&H    | 7.00 | 19.8 | 0.44 | −59.6 | 0%   | — |
 | **GMM-MVP**| **6.69** | 13.9 | **0.54** | −39.8 | 121% | **118.0** |
+| HMM-MVP    | 6.63 | 14.0 | 0.53 | −37.3 | 122% | 109.1 |
 | VIX-MVP    | 6.04 | 13.4 | 0.50 | −34.4 | 73%  | 125.3 |
-| HMM-MVP    | 6.19 | 14.0 | 0.50 | −38.7 | 122% | 77.5 |
-| HMM-TPF    | 5.16 | 15.7 | 0.40 | −55.1 | 464% | 0.0 |
+| HMM-TPF    | 4.96 | 17.2 | 0.37 | −58.1 | 478% | 0.0 |
 | GMM-TPF    | 3.86 | 18.1 | 0.30 | −44.5 | 433% | 0.0 |
 
 The minimum-variance (MVP) strategies are the robust, low-turnover, cost-tolerant winners —
-and they are nearly identical across classifiers (GMM 0.54, HMM 0.50, VIX 0.50), so the gain
-comes from risk targeting, not the regime model (the memoryless GMM even edges out the HMM).
+and they are nearly identical across classifiers (GMM 0.54, HMM 0.53, VIX 0.50), so the gain
+comes from risk targeting, not the regime model (the memoryless GMM matches the Markovian HMM).
 Every tangency (TPF) variant fails: with all methods sharing one portfolio construction,
 regime-conditional expected returns are too noisy to time, and no strategy beats the
 benchmark on raw return.
