@@ -1,20 +1,24 @@
 """
-Run this file to test the TPF fix!
+Run this file to test the TPF fix using ACTUAL PROJECT DATA!
 
 USAGE:
     cd market_regimes
-    python test_tpf_fix_inline.py
+    python TEST_RESULTS.py
 
-This generates synthetic data and demonstrates:
+This loads your cached market data and demonstrates:
 1. The bug in the original code (TPF < MVP = efficient frontier violation)
 2. How the fix resolves it (TPF ≥ MVP = efficient frontier restored)
 """
 
 import numpy as np
+import pandas as pd
+import os
+import pickle
 from scipy.optimize import minimize
-
-# Seed for reproducibility
-np.random.seed(42)
+from data.loader import load_all_data
+from data.features import compute_log_returns, compute_excess_returns
+from portfolio.ledoit_wolf import robust_covariance
+import config as CFG
 
 def mvp_weights(mu, sigma):
     """Minimum Variance Portfolio"""
@@ -48,16 +52,72 @@ def tpf_weights(mu, sigma, rf=0.0):
     )
     return result.x if result.success else np.ones(n)/n
 
+# ═══════════════════════════════════════════════════════════════════════════
+# LOAD ACTUAL PROJECT DATA
+# ═══════════════════════════════════════════════════════════════════════════
+
+print("\n" + "="*80)
+print("  LOADING MARKET DATA FROM PROJECT CACHE")
+print("="*80)
+
+data_raw = load_all_data(
+    start=CFG.START_DATE,
+    end=CFG.END_DATE,
+    sector_etfs=CFG.SECTOR_ETFS,
+    benchmark=CFG.BENCHMARK,
+    cache_path=CFG.DATA_CACHE,
+    force_reload=False,
+)
+
+prices = data_raw["prices"]
+vix = data_raw["vix"]
+rf = data_raw["rf"]
+
+# Compute log returns and excess returns for sector ETFs
+log_ret = compute_log_returns(prices)
+sector_cols = [c for c in CFG.SECTOR_ETFS if c in log_ret.columns]
+log_ret_sectors = log_ret[sector_cols]
+excess_sectors = compute_excess_returns(log_ret_sectors, rf)
+
+print(f"\nData loaded:")
+print(f"  • Period: {prices.index[0].date()} to {prices.index[-1].date()}")
+print(f"  • Trading days: {len(prices)}")
+print(f"  • Sector ETFs: {sector_cols}")
+
+# ═══════════════════════════════════════════════════════════════════════════
+# IDENTIFY CRISIS REGIME DATES (VIX > 30)
+# ═══════════════════════════════════════════════════════════════════════════
+
+crisis_dates = vix[vix > 30].index
+print(f"\nCrisis periods identified (VIX > 30): {len(crisis_dates)} trading days")
+
+if len(crisis_dates) > 0:
+    # Get the most recent crisis period for testing
+    recent_crisis_start = crisis_dates[0]
+    recent_crisis_end = recent_crisis_start + pd.Timedelta(days=60)  # ~3 months
+    crisis_data = excess_sectors.loc[recent_crisis_start:recent_crisis_end].dropna()
+    
+    print(f"Using recent crisis period: {recent_crisis_start.date()} to {recent_crisis_end.date()}")
+    print(f"Crisis period observations: {len(crisis_data)} trading days")
+else:
+    # Fallback: use tail of data (last 3 months)
+    crisis_data = excess_sectors.tail(60).dropna()
+    print(f"No recent crisis found; using last 60 trading days")
+
+# Compute regime-conditional moments from crisis data
+mu_crisis = crisis_data.mean().values
+sigma_crisis = robust_covariance(crisis_data.values, use_shrinkage=True)
+
+print(f"\nCrisis regime statistics:")
+print(f"  • Mean annualized return: {mu_crisis.mean() * 252 * 100:.2f}%")
+print(f"  • Volatility (from covariance): {np.sqrt(np.diag(sigma_crisis)).mean() * np.sqrt(252) * 100:.2f}%")
+print(f"  • VIX at period start: {vix.loc[crisis_data.index[0]]:.1f}")
+
+crisis_cash = 0.15
+
 print("\n" + "="*80)
 print("  TPF CRISIS CASH FIX TEST - RESULTS")
 print("="*80)
-
-# Generate synthetic regime-conditional moments
-mu_crisis = np.array([0.0001, 0.0002, 0.0001, 0.00005, 0.0001, 0.0002, 0.00005, 0.0002, 0.0001])
-sigma_crisis = np.diag([0.020**2, 0.021**2, 0.022**2, 0.019**2, 0.020**2, 0.021**2, 0.018**2, 0.022**2, 0.020**2])
-sigma_crisis += 0.1 * (np.random.randn(9, 9) + np.random.randn(9, 9).T) * 0.005
-
-crisis_cash = 0.15
 
 print("\nTesting crisis regime with 15% cash buffer...")
 print("-" * 80)
@@ -69,7 +129,7 @@ print("   " + "─" * 76)
 w_mvp_orig = mvp_weights(mu_crisis, sigma_crisis) * (1 - crisis_cash)
 w_mvp_orig /= w_mvp_orig.sum()
 
-w_tpf_orig = tpf_weights(mu_crisis, sigma_crisis, rf=0.00001) * (1 - crisis_cash)
+w_tpf_orig = tpf_weights(mu_crisis, sigma_crisis, rf=rf.mean()) * (1 - crisis_cash)
 w_tpf_orig /= w_tpf_orig.sum()
 
 ret_mvp_orig = w_mvp_orig @ mu_crisis
@@ -103,7 +163,7 @@ print("   " + "─" * 76)
 w_mvp_fixed = mvp_weights(mu_crisis, sigma_crisis) * (1 - crisis_cash)
 w_mvp_fixed /= w_mvp_fixed.sum()
 
-w_tpf_fixed = tpf_weights(mu_crisis, sigma_crisis, rf=0.00001)  # NO crisis cash
+w_tpf_fixed = tpf_weights(mu_crisis, sigma_crisis, rf=rf.mean())  # NO crisis cash
 w_tpf_fixed /= w_tpf_fixed.sum()
 
 ret_mvp_fixed = w_mvp_fixed @ mu_crisis
